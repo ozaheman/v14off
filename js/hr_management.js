@@ -101,7 +101,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         'app-container',
         // MODIFICATION: Cache new Payroll elements
         'payroll-staff-select', 'payroll-month-select', 'payroll-year-select', 'generate-payslip-btn',
-        'payslip-preview', 'download-payslip-pdf-btn', 'payroll-summary-body', 'summary-month-display'
+        'payslip-preview', 'download-payslip-pdf-btn', 'payroll-summary-body', 'summary-month-display',
+            'download-offer-pdf-btn'
     ];
        
         ids.forEach(id => {
@@ -114,10 +115,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         });
         
-        DOMElements.tabsContainer = document.getElementById('tabs');
-         console.log('DOMElements.tabsContainer:' + DOMElements.tabsContainer);
-        
-        //el = document.getElementById('app-container');
+        const tabsEl = document.getElementById('tabs');
+        if(tabsEl) DOMElements.tabsContainer = tabsEl;
         //if (el) DOMElements[toCamelCase(id)] = el;
          //   else console.warn(`Element with ID '${id}' not found.`);
         
@@ -396,8 +395,19 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
         }
         if (type === 'termination') {
              container.innerHTML = `<div class="input-group"><label for="letter-last-day">Last Working Day</label><input type="date" id="letter-last-day"></div><div class="input-group"><label for="letter-reason">Reason for Termination</label><input type="text" id="letter-reason"></div>`;
-        }
-        if (type === 'notice') {
+       } else if (type === 'experience_certificate') {
+            const today = new Date().toISOString().split('T')[0];
+            container.innerHTML = `
+                <div class="input-group">
+                    <label for="letter-last-day">Last Day of Employment</label>
+                    <input type="date" id="letter-last-day" value="${today}">
+                </div>
+                <div class="input-group">
+                    <label for="letter-conduct">Conduct / Performance Remark</label>
+                    <input type="text" id="letter-conduct" value="His/her conduct during the tenure was satisfactory.">
+                </div>
+            `;
+        } else if (type === 'notice') {
             DOMElements.letterStaffSelect.disabled = true;
             container.innerHTML = `<div class="input-group"><label for="letter-subject">Subject</label><input type="text" id="letter-subject"></div><div class="input-group"><label for="letter-body">Notice Body</label><textarea id="letter-body" rows="5"></textarea></div>`;
         }
@@ -417,7 +427,7 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
             details[toCamelCase(input.id.replace('letter-', ''))] = input.value;
         });
 
-        const templateFunction = window.HR_LETTER_TEMPLATES[type];
+        const templateFunction = HR_LETTER_TEMPLATES[type];
         if (templateFunction) {
             DOMElements.letterPreview.innerHTML = templateFunction({ staff, details });
             DOMElements.downloadLetterPdfBtn.style.display = 'inline-block';
@@ -817,133 +827,115 @@ async function downloadOfferLetterPdf() {
     // --- MODIFICATION START: NEW PAYROLL FUNCTIONS ---
 
 function renderPayrollTab() {
-    const monthSelect = DOMElements.payrollMonthSelect;
-    const yearSelect = DOMElements.payrollYearSelect;
+        const monthSelect = DOMElements.payrollMonthSelect;
+        const yearSelect = DOMElements.payrollYearSelect;
+        if (!monthSelect || !yearSelect) return;
 
-    if (!monthSelect || !yearSelect) return;
-
-    // Populate months
-    monthSelect.innerHTML = '';
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    months.forEach((month, index) => {
-        monthSelect.add(new Option(month, index));
-    });
-
-    // Populate years (last 5 years)
-    yearSelect.innerHTML = '';
-    const currentYear = new Date().getFullYear();
-    for (let i = 0; i < 5; i++) {
-        yearSelect.add(new Option(currentYear - i, currentYear - i));
+        if (monthSelect.options.length === 0) {
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            months.forEach((month, index) => {
+                monthSelect.add(new Option(month, index));
+            });
+            const currentYear = new Date().getFullYear();
+            for (let i = 0; i < 5; i++) {
+                yearSelect.add(new Option(currentYear - i, currentYear - i));
+            }
+            const now = new Date();
+            monthSelect.value = now.getMonth();
+            yearSelect.value = now.getFullYear();
+        }
+        renderPayrollSummary();
     }
 
-    // Set defaults to current month and year
-    const now = new Date();
-    monthSelect.value = now.getMonth();
-    yearSelect.value = now.getFullYear();
+    function renderPayrollSummary() {
+        const month = parseInt(DOMElements.payrollMonthSelect.value);
+        const year = parseInt(DOMElements.payrollYearSelect.value);
+        const monthName = DOMElements.payrollMonthSelect.options[month].text;
+        DOMElements.summaryMonthDisplay.textContent = `${monthName} ${year}`;
 
-    // Render initial summary
-    renderPayrollSummary();
-}
+        let totalGross = 0;
+        let totalDeductions = 0;
 
-function renderPayrollSummary() {
-    const month = parseInt(DOMElements.payrollMonthSelect.value);
-    const year = parseInt(DOMElements.payrollYearSelect.value);
-    const monthName = DOMElements.payrollMonthSelect.options[month].text;
-    DOMElements.summaryMonthDisplay.textContent = `${monthName} ${year}`;
+        staffList.forEach(staff => {
+            totalGross += staff.grossSalary || 0;
+            const targetMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const loansDeducted = (staff.loans || [])
+                .filter(loan => loan.status === 'Outstanding' && loan.date.startsWith(targetMonth))
+                .reduce((sum, loan) => sum + loan.amount, 0);
+            totalDeductions += loansDeducted;
+        });
 
-    let totalGross = 0;
-    let totalDeductions = 0;
+        const totalNet = totalGross - totalDeductions;
+        const tbody = DOMElements.payrollSummaryBody;
+        tbody.innerHTML = `
+            <tr>
+                <td>Total Gross Salaries</td>
+                <td style="text-align:right;">${formatCurrency(totalGross)}</td>
+            </tr>
+            <tr>
+                <td>Total Deductions (Loans)</td>
+                <td style="text-align:right;">${formatCurrency(totalDeductions)}</td>
+            </tr>
+            <tr class="total-row">
+                <td><b>Total Net Payable</b></td>
+                <td style="text-align:right;"><b>${formatCurrency(totalNet)}</b></td>
+            </tr>
+        `;
+    }
 
-    staffList.forEach(staff => {
-        totalGross += staff.grossSalary || 0;
+    function handleGeneratePayslip() {
+        const staffId = parseInt(DOMElements.payrollStaffSelect.value);
+        const month = parseInt(DOMElements.payrollMonthSelect.value);
+        const year = parseInt(DOMElements.payrollYearSelect.value);
+        if (!staffId) { alert("Please select a staff member."); return; }
+
+        const staff = staffList.find(s => s.id === staffId);
+        if (!staff) { alert("Staff member not found."); return; }
+
+        const monthName = DOMElements.payrollMonthSelect.options[month].text;
+        const monthYear = `${monthName} ${year}`;
         const targetMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+        const grossSalary = staff.grossSalary || 0;
+        const basicSalary = grossSalary * 0.60;
+        const allowances = grossSalary * 0.40;
+        const totalEarnings = grossSalary;
+
         const loansDeducted = (staff.loans || [])
             .filter(loan => loan.status === 'Outstanding' && loan.date.startsWith(targetMonth))
             .reduce((sum, loan) => sum + loan.amount, 0);
-        totalDeductions += loansDeducted;
-    });
+        
+        const otherDeductions = 0;
+        const totalDeductions = loansDeducted + otherDeductions;
+        const netPay = totalEarnings - totalDeductions;
 
-    const totalNet = totalGross - totalDeductions;
-    const tbody = DOMElements.payrollSummaryBody;
-    tbody.innerHTML = `
-        <tr>
-            <td>Total Gross Salaries</td>
-            <td style="text-align:right;">${formatCurrency(totalGross)}</td>
-        </tr>
-        <tr>
-            <td>Total Deductions (Loans)</td>
-            <td style="text-align:right;">${formatCurrency(totalDeductions)}</td>
-        </tr>
-        <tr class="total-row">
-            <td><b>Total Net Payable</b></td>
-            <td style="text-align:right;"><b>${formatCurrency(totalNet)}</b></td>
-        </tr>
-    `;
-}
+        const payslipData = {
+            staff, monthYear, grossSalary, basicSalary, allowances,
+            totalEarnings, loansDeducted, otherDeductions, totalDeductions, netPay,
+            formatCurrency
+        };
 
-function handleGeneratePayslip() {
-    const staffId = parseInt(DOMElements.payrollStaffSelect.value);
-    const month = parseInt(DOMElements.payrollMonthSelect.value);
-    const year = parseInt(DOMElements.payrollYearSelect.value);
-
-    if (!staffId) {
-        alert("Please select a staff member.");
-        return;
+        const templateFunction = HR_LETTER_TEMPLATES.payslip;
+        if (templateFunction) {
+            DOMElements.payslipPreview.innerHTML = templateFunction(payslipData);
+            DOMElements.downloadPayslipPdfBtn.style.display = 'inline-block';
+        } else {
+            DOMElements.payslipPreview.innerHTML = '<p>Payslip template not found.</p>';
+        }
     }
 
-    const staff = staffList.find(s => s.id === staffId);
-    if (!staff) {
-        alert("Staff member not found.");
-        return;
+    async function handleDownloadPayslip() {
+        const staffId = parseInt(DOMElements.payrollStaffSelect.value);
+        const staff = staffList.find(s => s.id === staffId);
+        const month = DOMElements.payrollMonthSelect.options[DOMElements.payrollMonthSelect.value].text;
+        const year = DOMElements.payrollYearSelect.value;
+        if (!staff) return;
+        await PDFGenerator.generate({
+            previewId: 'payslip-preview',
+            fileName: `Payslip_${staff.name.replace(/\s/g, '_')}_${month}_${year}`,
+            pageSize: 'a4_portrait'
+        });
     }
-
-    const monthName = DOMElements.payrollMonthSelect.options[month].text;
-    const monthYear = `${monthName} ${year}`;
-    const targetMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
-
-    // Calculations
-    const grossSalary = staff.grossSalary || 0;
-    const basicSalary = grossSalary * 0.60;
-    const allowances = grossSalary * 0.40;
-    const totalEarnings = grossSalary;
-
-    const loansDeducted = (staff.loans || [])
-        .filter(loan => loan.status === 'Outstanding' && loan.date.startsWith(targetMonth))
-        .reduce((sum, loan) => sum + loan.amount, 0);
-    
-    const otherDeductions = 0; // Placeholder for future deduction types
-    const totalDeductions = loansDeducted + otherDeductions;
-    const netPay = totalEarnings - totalDeductions;
-
-    const payslipData = {
-        staff, monthYear, grossSalary, basicSalary, allowances,
-        totalEarnings, loansDeducted, otherDeductions, totalDeductions, netPay,
-        formatCurrency // Pass formatter to template
-    };
-
-    const templateFunction = window.HR_LETTER_TEMPLATES.payslip;
-    if (templateFunction) {
-        DOMElements.payslipPreview.innerHTML = templateFunction(payslipData);
-        DOMElements.downloadPayslipPdfBtn.style.display = 'inline-block';
-    } else {
-        DOMElements.payslipPreview.innerHTML = '<p>Payslip template not found.</p>';
-    }
-}
-
-async function handleDownloadPayslip() {
-    const staffId = parseInt(DOMElements.payrollStaffSelect.value);
-    const staff = staffList.find(s => s.id === staffId);
-    const month = DOMElements.payrollMonthSelect.options[DOMElements.payrollMonthSelect.value].text;
-    const year = DOMElements.payrollYearSelect.value;
-    
-    if (!staff) return;
-
-    await PDFGenerator.generate({
-        previewId: 'payslip-preview',
-        fileName: `Payslip_${staff.name.replace(/\s/g, '_')}_${month}_${year}`,
-        pageSize: 'a4_portrait'
-    });
-}
     // --- MODIFICATION START: New feature functions ---
 
     // --- VAT Report ---

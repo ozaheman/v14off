@@ -22,7 +22,11 @@
         HOLIDAYS: 'holidays',
         STAFF_LEAVES: 'staffLeaves',
         DESIGN_SCRUM: 'designScrum',
-        BULLETIN: 'bulletin'
+        BULLETIN: 'bulletin',
+        // New Stores required by your modules
+        VENDORS: 'vendors',
+        REFERRAL_ACCOUNTS: 'referralAccounts',
+        OTHER_ACCOUNTS: 'otherAccounts'
     };
 
     // ... [KEEP ALL THE INTERNAL FUNCTIONS: init, seedFinancialTemplates, makeRequest, mergeLists, mergeFiles as written in previous response] ...
@@ -67,6 +71,10 @@
                 createStore(STORES.STAFF_LEAVES, { keyPath: 'id', autoIncrement: true });
                 createStore(STORES.DESIGN_SCRUM, { keyPath: 'jobNo' });
                 createStore(STORES.BULLETIN, { keyPath: 'id', autoIncrement: true });
+                // New Stores
+                createStore(STORES.VENDORS, { keyPath: 'id', autoIncrement: true });
+                createStore(STORES.REFERRAL_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
+                createStore(STORES.OTHER_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
             };
 
             request.onsuccess = async (event) => {
@@ -102,6 +110,7 @@
             if (!db) return reject("Database not initialized.");
             if (!db.objectStoreNames.contains(storeName)) {
                 return reject(`Object store '${storeName}' not found.`);
+                return resolve([]); 
             }
             const transaction = db.transaction(storeName, mode);
             const store = transaction.objectStore(storeName);
@@ -185,7 +194,11 @@
         // --- Settings Methods ---
         getSetting: (id) => publicAPI.get(STORES.SETTINGS, id),
         putSetting: (data) => publicAPI.put(STORES.SETTINGS, data),
-        
+        // --- Verification Methods ---
+        // FIX: Added verifyMasterLogin which aliases to verifyPassword to solve the error
+        verifyMasterLogin: async (role, inputPassword) => {
+            return await publicAPI.verifyPassword(role, inputPassword);
+        },
         verifyPassword: async (role, inputPassword) => {
             const standardizedRole = (role || '').toLowerCase().replace(/\s+/g, ''); // Standardize role
               //alert ('role1:' + role);
@@ -206,9 +219,17 @@
                     return settings.passwords[standardizedRole] === inputPassword;
                 }
                 const defaultPass = {
-                    'site': 'site_eng@12345','siteeng': 'site_eng@12345',
-                    'arch': 'arch@12345', 'str': 'str@12345', 'mep': 'mep@12345',
-                    'pm': 'pm@12345', 'contractor': 'contractor@12345', 'client': 'client@12345', 'admin': 'admin@12345'
+                    'site': 'site_eng@12345',
+                    'siteeng': 'site_eng@12345',
+                    'arch': 'arch@12345', 
+                    'str': 'str@12345', 
+                    'mep': 'mep@12345',
+                    'pm': 'pm@12345', 
+                    'contractor': 'contractor@12345', 'client': 'client@12345', 
+                    'hr': 'hr@12345', 
+                    'admin': 'admin@12345',
+                    'proc': 'proc@12345', // Default for vendor management
+                    'design': 'design@12345' // Default for design center
                 }[standardizedRole];
                 return inputPassword === defaultPass || inputPassword === 'admin@12345'; 
             } catch (e) { 
@@ -232,6 +253,14 @@
         deleteHRData: (id) => publicAPI.delete(STORES.HR_DATA, id),
         getOfficeExpenses: () => publicAPI.getAll(STORES.OFFICE_EXPENSES),
         addOfficeExpense: (data) => publicAPI.add(STORES.OFFICE_EXPENSES, data),
+        // --- NEW: Referral & Other Accounts Methods (Fixes HR JS errors) ---
+        getAllReferralAccounts: () => publicAPI.getAll(STORES.REFERRAL_ACCOUNTS),
+        addReferralAccount: (data) => publicAPI.add(STORES.REFERRAL_ACCOUNTS, data),
+        deleteReferralAccount: (id) => publicAPI.delete(STORES.REFERRAL_ACCOUNTS, id),
+        
+        getAllOtherAccounts: () => publicAPI.getAll(STORES.OTHER_ACCOUNTS),
+        addOtherAccount: (data) => publicAPI.add(STORES.OTHER_ACCOUNTS, data),
+        deleteOtherAccount: (id) => publicAPI.delete(STORES.OTHER_ACCOUNTS, id),
 
         // --- Financial Template Methods ---
         getFinancialTemplate: (id) => publicAPI.get(STORES.FINANCIAL_TEMPLATES, id),

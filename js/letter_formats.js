@@ -72,7 +72,26 @@ const HR_LETTER_TEMPLATES = {
             <br><br><p>Sincerely,</p><br><br><p><b>Management</b></p>
         `;
     },
+// MODIFICATION START: Add new Experience Certificate template
+    experience_certificate: ({ staff, details }) => {
+        const lastDay = details.lastDay ? formatDateForTemplates(details.lastDay) : '[Last Day of Employment]';
+        const conductRemark = details.conduct || 'His/her conduct during the tenure was satisfactory.';
 
+        return `
+            ${getLetterheadHeaderHtml()}
+            <p style="text-align:right;">Date: ${formatDateForTemplates()}</p><br><br>
+            <h3 style="text-align:center; text-decoration: underline;">TO WHOM IT MAY CONCERN</h3><br><br>
+            <h4 style="text-align:center; text-decoration: underline;">EXPERIENCE CERTIFICATE</h4><br><br>
+            <p>This is to certify that <b>Mr. / Ms. ${staff.name}</b> was employed with Urban Axis Architectural & Consulting Engineers from ${formatDateForTemplates(staff.joinDate)} to ${lastDay}.</p>
+            <p>During his/her employment with us, he/she was designated as <b>${staff.role}</b>.</p>
+            <br>
+            <p>${conductRemark}</p>
+            <br>
+            <p>We wish him/her all the best in his/her future endeavors.</p>
+            <br><br><p>Sincerely,</p><br><br><p><b>Management</b></p>
+        `;
+    },
+    // MODIFICATION END
     notice: ({ details }) => `
         <p>Date: ${formatDateForTemplates()}</p><br><br>
         <h3 style="text-align:center; text-decoration: underline;">NOTICE</h3><br>
@@ -86,7 +105,91 @@ const HR_LETTER_TEMPLATES = {
         <h3 style="text-align:center; text-decoration: underline;">TO WHOM IT MAY CONCERN</h3><br><br>
         <p>This letter is to authorize the bearer, <b>Mr. / Ms. ${staff.name}</b>, holding Emirates ID No. <b>${staff.emiratesId || '[EID Missing]'}</b>, to represent Urban Axis Architectural & Consulting Engineers for the purpose of ${details.reason || 'official business'}.</p>
         <p>Any assistance extended to him/her in this regard would be highly appreciated.</p><br>
-        <p>Sincerely,</p><br><br><p><b>Management</b></p>`
+        <p>Sincerely,</p><br><br><p><b>Management</b></p>`,
+         payslip: ({ staff, monthYear, grossSalary, basicSalary, allowances, totalEarnings, loansDeducted, otherDeductions, totalDeductions, netPay, formatCurrency }) => `
+    ${getLetterheadHeaderHtml()}
+    <div style="padding: 0 10mm;">
+        <p style="text-align:right;">Date: ${formatDateForTemplates()}</p><br>
+        <h3 style="text-align:center; text-decoration: underline;">PAYSLIP FOR THE MONTH OF ${monthYear.toUpperCase()}</h3><br>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11pt;" border="0">
+            <tr>
+                <td style="padding: 4px; width: 15%;"><b>Employee Name</b></td>
+                <td style="padding: 4px; width: 35%;">: ${staff.name}</td>
+                <td style="padding: 4px; width: 15%;"><b>Designation</b></td>
+                <td style="padding: 4px; width: 35%;">: ${staff.role}</td>
+            </tr>
+            <tr>
+                <td style="padding: 4px;"><b>Employee ID</b></td>
+                <td style="padding: 4px;">: UA-${String(staff.id).padStart(3, '0')}</td>
+                <td style="padding: 4px;"><b>Join Date</b></td>
+                <td style="padding: 4px;">: ${formatDateForTemplates(staff.joinDate)}</td>
+            </tr>
+        </table>
+        <br>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11pt;" border="1">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="padding: 8px; text-align: left; width: 50%;">Earnings</th>
+                    <th style="padding: 8px; text-align: left; width: 50%;">Deductions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="vertical-align: top; padding: 0;">
+                        <table style="width: 100%; border-collapse: collapse;" border="0">
+                            <tr>
+                                <td style="padding: 6px; width: 60%;">Basic Salary</td>
+                                <td style="padding: 6px; text-align: right;">${formatCurrency(basicSalary)}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px;">Allowances</td>
+                                <td style="padding: 6px; text-align: right;">${formatCurrency(allowances)}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td style="vertical-align: top; padding: 0;">
+                         <table style="width: 100%; border-collapse: collapse;" border="0">
+                            <tr>
+                                <td style="padding: 6px; width: 60%;">Staff Loan</td>
+                                <td style="padding: 6px; text-align: right;">${formatCurrency(loansDeducted)}</td>
+                            </tr>
+                             <tr>
+                                <td style="padding: 6px;">Other Deductions</td>
+                                <td style="padding: 6px; text-align: right;">${formatCurrency(otherDeductions)}</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background-color: #f2f2f2; font-weight: bold;">
+                    <td style="padding: 8px;">
+                           <div style="display: flex; justify-content: space-between;">
+                            <span>Total Earnings</span>
+                            <span>${formatCurrency(totalEarnings)}</span>
+                        </div>
+                    </td>
+                    <td style="padding: 8px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Total Deductions</span>
+                            <span>${formatCurrency(totalDeductions)}</span>
+                        </div>
+                    </td>
+                </tr>
+                 <tr style="background-color: #e0e0e0; font-weight: bold; font-size: 12pt;">
+                    <td colspan="2" style="padding: 10px;">
+                       <div style="display: flex; justify-content: space-between;">
+                             <span>Net Salary Payable</span>
+                             <span>${formatCurrency(netPay)}</span>
+                        </div>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        <br>
+        <p style="font-size: 10pt;"><i>This is a computer-generated document and does not require a signature.</i></p>
+    </div>
+`
 };
 
 /**
