@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
      // MODIFICATION: Add new data arrays
     let referralAccounts = [];
     let otherAccounts = [];
+    let assetList = []; // MODIFICATION: New global for assets
+    let projectList = []; // MODIFICATION: New global for projects
     let expenseChart = null;
     let currentEditingStaffId = null;
 
@@ -66,6 +68,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         referralAccounts = await DB.getAllReferralAccounts?.() || []; // Use optional chaining in case DB is not updated
         otherAccounts = await DB.getAllOtherAccounts?.() || [];
         
+         // MODIFICATION: Load new data
+        assetList = await DB.getAllAssets?.() || [];
+        projectList = await DB.getAllProjects?.() || [];
+        
         if (staffList.length === 0) {
             console.log("HR_DATA store is empty. Seeding initial staff data...");
             const initialStaff = [
@@ -102,7 +108,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // MODIFICATION: Cache new Payroll elements
         'payroll-staff-select', 'payroll-month-select', 'payroll-year-select', 'generate-payslip-btn',
         'payslip-preview', 'download-payslip-pdf-btn', 'payroll-summary-body', 'summary-month-display',
-            'download-offer-pdf-btn'
+            'download-offer-pdf-btn',
+            // MODIFICATION: New element IDs
+            'ref-project-no', 'other-project-no', 'asset-item-code', 'asset-type', 'asset-location', 'asset-department',
+            'asset-project-no', 'asset-price', 'asset-date', 'asset-warranty-expiry', 'asset-note1', 'asset-note2',
+            'add-asset-btn', 'asset-list-body', 'export-xml-btn', 'export-zip-btn'
     ];
        
         ids.forEach(id => {
@@ -163,22 +173,59 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
         // MODIFICATION: Event listeners for new features
         DOMElements.addReferralBtn.addEventListener('click', handleAddReferralAccount);
         DOMElements.addOtherAccountBtn.addEventListener('click', handleAddOtherAccount);
-        
+        // MODIFICATION: New event listeners
+        DOMElements.addAssetBtn?.addEventListener('click', handleAddAsset);
+        DOMElements.exportXmlBtn?.addEventListener('click', handleExportXML);
+        DOMElements.exportZipBtn?.addEventListener('click', handleExportZIP);
      // Delegated event listener for all table actions (export/print)
     if (DOMElements.appContainer) {
         DOMElements.appContainer.addEventListener('click', handleTableActions);
         DOMElements.appContainer.addEventListener('change', handleFileImport);
+        // MODIFICATION START: Add delegated event listener for all search inputs
+            DOMElements.appContainer.addEventListener('input', handleSearch);
+            // MODIFICATION END
+        }
         
-        /* const today = new Date().toISOString().split('T')[0];
-        ['joinDate', 'leaveStartDate', 'leaveEndDate', 'expenseDate', 'incrementDate', 'modalLoanDate', 'modalStaffJoinDate', 'annualExpenseDueDate'].forEach(id => {
+         const today = new Date().toISOString().split('T')[0];
+        ['joinDate', 'leaveStartDate', 'leaveEndDate', 'expenseDate', 'incrementDate', 'modalLoanDate', 'modalStaffJoinDate', 'annualExpenseDueDate', 'assetDate'].forEach(id => {
             if (DOMElements[id]) DOMElements[id].value = today;
-        }); */
+        });
     }
-      const today = new Date().toISOString().split('T')[0];
-    ['joinDate', 'leaveStartDate', 'leaveEndDate', 'expenseDate', 'incrementDate', 'modalLoanDate', 'modalStaffJoinDate', 'annualExpenseDueDate'].forEach(id => {
-        if (DOMElements[id]) DOMElements[id].value = today;
-    });
-}
+    // MODIFICATION START: Universal Search Handler
+    function handleSearch(e) {
+        if (!e.target.matches('.table-search-input')) return;
+
+        const query = e.target.value.toLowerCase().trim();
+        const tableSelector = e.target.dataset.tableSelector;
+        const table = document.querySelector(tableSelector);
+
+        if (!table) {
+            console.error(`Search failed: Table with selector "${tableSelector}" not found.`);
+            return;
+        }
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const rows = tbody.querySelectorAll('tr');
+
+        rows.forEach(row => {
+            // Ignore special rows like totals from being hidden
+            if (row.classList.contains('total-row') || row.classList.contains('no-search')) {
+                return;
+            }
+
+            const rowText = row.textContent.toLowerCase();
+            const isVisible = rowText.includes(query);
+            row.style.display = isVisible ? '' : 'none';
+        });
+    }
+    
+      //const today = new Date().toISOString().split('T')[0];
+    //['joinDate', 'leaveStartDate', 'leaveEndDate', 'expenseDate', 'incrementDate', 'modalLoanDate', 'modalStaffJoinDate', 'annualExpenseDueDate'].forEach(id => {
+      //  if (DOMElements[id]) DOMElements[id].value = today;
+   // });
+
     
     async function refreshDataAndRender() {
         await loadDataFromDB();
@@ -199,6 +246,7 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
         renderOtherAccounts();
         // MODIFICATION: Render Payroll Tab on initial load
     renderPayrollTab();
+    renderAssetList(); // MODIFICATION: Call new render function
     }
 
     function handleTabSwitch(e) {
@@ -221,6 +269,14 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
                 const select = DOMElements[id];
                 select.innerHTML = '<option value="">-- Select Staff --</option>';
                 staffList.sort((a,b) => a.name.localeCompare(b.name)).forEach(staff => select.add(new Option(`${staff.name} (${staff.role})`, staff.id)));
+            }
+        });
+        // MODIFICATION: Populate project selects
+        ['refProjectNo', 'otherProjectNo', 'assetProjectNo'].forEach(id => {
+            if (DOMElements[id]) {
+                const select = DOMElements[id];
+                select.innerHTML = '<option value="">-- No Associated Project --</option>';
+                projectList.sort((a,b) => a.jobNo.localeCompare(b.jobNo)).forEach(proj => select.add(new Option(`${proj.jobNo} - ${proj.projectDescription}`, proj.jobNo)));
             }
         });
     }
@@ -457,7 +513,10 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
         const sixtyDaysFromNow = new Date();
         sixtyDaysFromNow.setDate(now.getDate() + 60);
         let remindersFound = false;
-
+ const addReminder = (text, daysLeft, dateStr) => {
+            container.innerHTML += `<li class="${daysLeft <= 30 ? 'danger' : 'warning'}">${text} in ${daysLeft} days (on ${formatDate(dateStr)}).</li>`;
+            remindersFound = true;
+        };
         staffList.forEach(staff => {
             const checks = {
                 'Visa': staff.visaExpiry,
@@ -471,9 +530,30 @@ DOMElements.downloadOfferPdfBtn.addEventListener('click', downloadOfferLetterPdf
                     const expiryDate = new Date(expiryDateStr);
                     if (expiryDate >= now && expiryDate <= sixtyDaysFromNow) {
                         const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-                        container.innerHTML += `<li class="${daysLeft <= 15 ? 'danger' : 'warning'}">${staff.name}'s ${itemType} will expire in ${daysLeft} days (on ${formatDate(expiryDateStr)}).</li>`;
-                        remindersFound = true;
+                        //container.innerHTML += `<li class="${daysLeft <= 15 ? 'danger' : 'warning'}">${staff.name}'s ${itemType} will expire in ${daysLeft} days (on ${formatDate(expiryDateStr)}).</li>`;
+                       // remindersFound = true;
+                       addReminder(`${staff.name}'s ${itemType} will expire`, daysLeft, expiryDateStr);
                     }
+                }
+            }
+        });
+        // MODIFICATION: Add reminders for assets and annual expenses
+        (officeExpenses || []).filter(e => e.frequency === 'annual').forEach(exp => {
+            if(exp.date) {
+                const dueDate = new Date(exp.date);
+                if (dueDate >= now && dueDate <= sixtyDaysFromNow) {
+                    const daysLeft = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                    addReminder(`Annual expense "${exp.description}" is due`, daysLeft, exp.date);
+                }
+            }
+        });
+
+        (assetList || []).forEach(asset => {
+            if(asset.warrantyExpiry) {
+                const expiryDate = new Date(asset.warrantyExpiry);
+                 if (expiryDate >= now && expiryDate <= sixtyDaysFromNow) {
+                    const daysLeft = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                    addReminder(`Asset "${asset.itemCode} - ${asset.type}" warranty expires`, daysLeft, asset.warrantyExpiry);
                 }
             }
         });
@@ -679,7 +759,7 @@ async function downloadOfferLetterPdf() {
                 <td>${exp.description}</td>
                 <td style="text-align:right;">${formatCurrency(exp.amount)}</td>
                 <td>${formatDate(exp.date)}</td>
-                <td><button class="danger-button small-btn" data-id="${exp.id}">Delete</button></td>
+                <td><button class="danger-button small-btn" data-id="${exp.id}" data-type="annual-expense">Delete</button></td>
             `;
         });
     }
@@ -975,13 +1055,14 @@ function renderPayrollTab() {
             phone: DOMElements.refPhone.value.trim(),
             email: DOMElements.refEmail.value.trim(),
             notes: DOMElements.refNotes.value.trim(),
+            projectNo: DOMElements.refProjectNo.value // MODIFICATION: Save project
         };
         if (!account.name) {
             alert('Please enter a name for the referral account.'); return;
         }
         await DB.addReferralAccount(account);
         alert('Referral account added.');
-        [DOMElements.refName, DOMElements.refContact, DOMElements.refPhone, DOMElements.refEmail, DOMElements.refNotes].forEach(el => el.value = '');
+        [DOMElements.refName, DOMElements.refContact, DOMElements.refPhone, DOMElements.refEmail, DOMElements.refNotes, DOMElements.refProjectNo].forEach(el => el.value = '');
         await refreshDataAndRender();
     }
     
@@ -992,13 +1073,14 @@ function renderPayrollTab() {
             phone: DOMElements.otherPhone.value.trim(),
             email: DOMElements.otherEmail.value.trim(),
             notes: DOMElements.otherNotes.value.trim(),
+             projectNo: DOMElements.otherProjectNo.value // MODIFICATION: Save project
         };
         if (!account.name) {
             alert('Please enter a name for the account.'); return;
         }
         await DB.addOtherAccount(account);
         alert('Account added.');
-        [DOMElements.otherName, DOMElements.otherContact, DOMElements.otherPhone, DOMElements.otherEmail, DOMElements.otherNotes].forEach(el => el.value = '');
+        [DOMElements.otherName, DOMElements.otherContact, DOMElements.otherPhone, DOMElements.otherEmail, DOMElements.otherNotes, DOMElements.otherProjectNo].forEach(el => el.value = '');
         await refreshDataAndRender();
     }
 
@@ -1006,11 +1088,11 @@ function renderPayrollTab() {
         const tbody = DOMElements.referralAccountsBody;
         tbody.innerHTML = '';
         if (referralAccounts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referral accounts found.</td></tr>'; return;
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No referral accounts found.</td></tr>'; return;
         }
         referralAccounts.forEach(acc => {
             const row = tbody.insertRow();
-            row.innerHTML = `<td>${acc.name}</td><td>${acc.contact}</td><td>${acc.phone}</td><td>${acc.email}</td><td><button class="danger-button small-btn" data-id="${acc.id}" data-type="referral">Delete</button></td>`;
+          row.innerHTML = `<td>${acc.name}</td><td>${acc.contact}</td><td>${acc.phone}</td><td>${acc.email}</td><td>${acc.projectNo || 'N/A'}</td><td><button class="danger-button small-btn" data-id="${acc.id}" data-type="referral">Delete</button></td>`;
         });
     }
     
@@ -1018,15 +1100,131 @@ function renderPayrollTab() {
         const tbody = DOMElements.otherAccountsBody;
         tbody.innerHTML = '';
         if (otherAccounts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No other accounts found.</td></tr>'; return;
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No other accounts found.</td></tr>'; return;
         }
         otherAccounts.forEach(acc => {
             const row = tbody.insertRow();
-            row.innerHTML = `<td>${acc.name}</td><td>${acc.contact}</td><td>${acc.phone}</td><td>${acc.email}</td><td><button class="danger-button small-btn" data-id="${acc.id}" data-type="other">Delete</button></td>`;
+            row.innerHTML = `<td>${acc.name}</td><td>${acc.contact}</td><td>${acc.phone}</td><td>${acc.email}</td><td>${acc.projectNo || 'N/A'}</td><td><button class="danger-button small-btn" data-id="${acc.id}" data-type="other">Delete</button></td>`;
         });
     }
 
     // --- Import/Export/Print Handlers ---
+    // --- MODIFICATION START: New Asset Tracker Functions ---
+    async function handleAddAsset() {
+        const asset = {
+            itemCode: DOMElements.assetItemCode.value.trim(),
+            type: DOMElements.assetType.value.trim(),
+            location: DOMElements.assetLocation.value.trim(),
+            department: DOMElements.assetDepartment.value.trim(),
+            projectNo: DOMElements.assetProjectNo.value,
+            price: parseFloat(DOMElements.assetPrice.value) || 0,
+            purchaseDate: DOMElements.assetDate.value,
+            warrantyExpiry: DOMElements.assetWarrantyExpiry.value,
+            note1: DOMElements.assetNote1.value.trim(),
+            note2: DOMElements.assetNote2.value.trim(),
+        };
+        if (!asset.itemCode || !asset.type) {
+            alert('Please provide at least an Item Code and Type.');
+            return;
+        }
+        await DB.addAsset(asset);
+        alert('Asset added successfully.');
+        [DOMElements.assetItemCode, DOMElements.assetType, DOMElements.assetLocation, DOMElements.assetDepartment, DOMElements.assetProjectNo, DOMElements.assetPrice, DOMElements.assetDate, DOMElements.assetWarrantyExpiry, DOMElements.assetNote1, DOMElements.assetNote2].forEach(el => el.value = '');
+        await refreshDataAndRender();
+    }
+
+    function renderAssetList() {
+        const tbody = DOMElements.assetListBody;
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!assetList || assetList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">No assets found.</td></tr>';
+            return;
+        }
+        assetList.forEach(asset => {
+            const qrData = `Code: ${asset.itemCode}, Type: ${asset.type}, Location: ${asset.location}`;
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${asset.itemCode}</td>
+                <td>${asset.type}</td>
+                <td>${asset.location}</td>
+                <td>${asset.department}</td>
+                <td>${asset.projectNo || 'N/A'}</td>
+                <td>${formatCurrency(asset.price)}</td>
+                <td>${formatDate(asset.purchaseDate)}</td>
+                <td>${formatDate(asset.warrantyExpiry)}</td>
+                <td>${qrData}</td>
+                <td><button class="danger-button small-btn" data-id="${asset.id}" data-type="asset">Delete</button></td>
+            `;
+        });
+    }
+    // --- MODIFICATION END ---
+
+    // --- MODIFICATION START: New Data Export Functions ---
+    async function handleExportXML() {
+        alert("Preparing XML export...");
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urbanAxisData>\n';
+
+        const toXML = (data, tagName) => {
+            let xml = '';
+            for (const item of data) {
+                xml += `  <${tagName}>\n`;
+                for (const key in item) {
+                    const value = item[key] ? String(item[key]).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;') : '';
+                    if (typeof item[key] === 'object' && item[key] !== null) {
+                        xml += `    <${key}>${JSON.stringify(item[key])}</${key}>\n`;
+                    } else {
+                        xml += `    <${key}>${value}</${key}>\n`;
+                    }
+                }
+                xml += `  </${tagName}>\n`;
+            }
+            return xml;
+        };
+        
+        xml += '<staffList>\n' + toXML(staffList, 'staff') + '</staffList>\n';
+        xml += '<officeExpenses>\n' + toXML(officeExpenses, 'expense') + '</officeExpenses>\n';
+        xml += '<referralAccounts>\n' + toXML(referralAccounts, 'account') + '</referralAccounts>\n';
+        xml += '<otherAccounts>\n' + toXML(otherAccounts, 'account') + '</otherAccounts>\n';
+        xml += '<assets>\n' + toXML(assetList, 'asset') + '</assets>\n';
+        xml += '<projects>\n' + toXML(projectList, 'project') + '</projects>\n';
+        
+        xml += '</urbanAxisData>';
+        
+        const blob = new Blob([xml], { type: 'application/xml' });
+        triggerDownload(blob, 'UrbanAxis_AllData.xml');
+    }
+
+    async function handleExportZIP() {
+        if (typeof JSZip === 'undefined') {
+            alert('ZIP library is not loaded. Cannot create ZIP file.');
+            return;
+        }
+        alert("Preparing ZIP export...");
+        const zip = new JSZip();
+        
+        zip.file("staff.json", JSON.stringify(staffList, null, 2));
+        zip.file("expenses.json", JSON.stringify(officeExpenses, null, 2));
+        zip.file("referral_accounts.json", JSON.stringify(referralAccounts, null, 2));
+        zip.file("other_accounts.json", JSON.stringify(otherAccounts, null, 2));
+        zip.file("assets.json", JSON.stringify(assetList, null, 2));
+        zip.file("projects.json", JSON.stringify(projectList, null, 2));
+
+        const blob = await zip.generateAsync({ type: "blob" });
+        triggerDownload(blob, 'UrbanAxis_AllData.zip');
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    // --- MODIFICATION END ---
     function handleTableActions(e) {
         if (e.target.matches('.export-csv-btn')) {
             const tableId = e.target.dataset.tableId;
@@ -1043,6 +1241,13 @@ function renderPayrollTab() {
         }
          if (e.target.matches('.danger-button[data-type="other"]')) {
              if (confirm('Delete this account?')) DB.deleteOtherAccount(parseInt(e.target.dataset.id)).then(refreshDataAndRender);
+        }
+             // MODIFICATION: Handle asset deletion
+         if (e.target.matches('.danger-button[data-type="asset"]')) {
+             if (confirm('Delete this asset?')) DB.deleteAsset(parseInt(e.target.dataset.id)).then(refreshDataAndRender);
+        }
+        if (e.target.matches('.danger-button[data-type="annual-expense"]')) {
+             if (confirm('Delete this annual expense?')) DB.delete(DB.STORES.OFFICE_EXPENSES, parseInt(e.target.dataset.id)).then(refreshDataAndRender);
         }
     }
 
@@ -1068,13 +1273,15 @@ function renderPayrollTab() {
         }
 
         const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-        const downloadLink = document.createElement("a");
-        downloadLink.download = filename;
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+        
+        triggerDownload(csvFile, filename);
+        //const downloadLink = document.createElement("a");
+        //downloadLink.download = filename;
+        //downloadLink.href = window.URL.createObjectURL(csvFile);
+        //downloadLink.style.display = "none";
+        //document.body.appendChild(downloadLink);
+        //downloadLink.click();
+        //document.body.removeChild(downloadLink);
     }
     
     async function printElementToPDF(elementId, filename) {
@@ -1134,4 +1341,4 @@ function renderPayrollTab() {
         reader.readAsText(file);
         e.target.value = ''; // Reset file input
     }
-   
+   //

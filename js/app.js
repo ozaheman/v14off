@@ -182,6 +182,7 @@ function showView(viewId) {
 function showDashboard() {
     App.currentProjectJobNo = null;
     App.currentInvoiceIndex = null;
+     App.ProjectTabs.PaymentCert.resetPreviewState?.(); // Reset payment cert preview state
     showView('dashboard-view');
     renderDashboard();
 }
@@ -231,7 +232,7 @@ async function renderDashboard() {
     const tbody = App.DOMElements['project-list-body'];
     tbody.innerHTML = '';
     if (allProjects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">No projects found. Use "Import Master" to add projects.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">No projects found. Use "+ New Sample" to add a demo project or "Import Master" to add your own.</td></tr>';
         return;
     }
 
@@ -666,7 +667,10 @@ async function handleEditProject(jobNo) {
         App.ProjectTabs.PaymentCert.renderTab(project);
         App.ProjectTabs.Documents.renderAllGalleries(jobNo);
         App.ProjectTabs.Tools.populateTabData(project);
+        // Add this inside the App.init function, with the other module initializations
+App.ProjectTabs.PaymentCert.init();
         refreshCurrentPreview();
+        
     }
 }
 
@@ -703,7 +707,48 @@ async function handleNewProject() {
     Bulletin.log('New Project Created', `Project <strong>${jobNo}</strong> has been created.`);
     refreshCurrentPreview();
 } 
+// MODIFICATION START: New function to create sample projects
+async function handleCreateSampleProject() {
+    if (typeof SAMPLE_PROJECT_TEMPLATES === 'undefined') {
+        alert("Sample project templates are not loaded.");
+        return;
+    }
+    const availableTypes = Object.keys(SAMPLE_PROJECT_TEMPLATES).join(', ');
+    const projectType = prompt(`Enter the type of sample project to create.\nAvailable types: ${availableTypes}`);
 
+    if (!projectType || !SAMPLE_PROJECT_TEMPLATES[projectType]) {
+        if(projectType) alert("Invalid project type.");
+        return;
+    }
+
+    try {
+        // Get new Job No
+        const allProjects = await DB.getAllProjects();
+        const nextId = allProjects.length > 0 ? Math.max(...(allProjects.map(p => parseInt(p.jobNo.split('/').pop(), 10) || 0))) + 1 : 1;
+        const jobNo = `RRC/${new Date().getFullYear()}/${String(nextId).padStart(3, '0')}`;
+        
+        // Get template and merge
+        let newProject = JSON.parse(JSON.stringify(SAMPLE_PROJECT_TEMPLATES[projectType])); // Deep copy
+        newProject.jobNo = jobNo;
+        newProject.agreementDate = new Date().toISOString().split('T')[0];
+
+        // Save project and scrum data if it exists in the template
+        if (newProject.scrumTasks) {
+            await DB.putScrumData({ jobNo: jobNo, tasks: newProject.scrumTasks });
+            delete newProject.scrumTasks; // Don't save it inside the project object
+        }
+        await DB.putProject(newProject);
+        
+        alert(`Sample '${projectType}' project created successfully with Job No: ${jobNo}`);
+        App.Bulletin.log('Sample Project Created', `New sample <strong>${projectType}</strong> project <strong>${jobNo}</strong> created.`);
+        await renderDashboard();
+
+    } catch (error) {
+        console.error("Error creating sample project:", error);
+        alert("An error occurred while creating the sample project.");
+    }
+}
+// MODIFICATION END
 async function saveCurrentProject() {
     if (!App.currentProjectJobNo) return;
     let uiData = {};
@@ -769,7 +814,7 @@ async function updateActivePreview(tabId) {
         'receipt': () => App.ProjectTabs.Invoicing.renderInvoiceDocuments(fullData.invoices?.[App.currentInvoiceIndex]),
         'tender-package': () => PROJECT_DOCUMENT_TEMPLATES.tenderPackage(fullData),
         'vendor-list': () => PROJECT_DOCUMENT_TEMPLATES.vendorList(fullData),
-        'payment-certificate': () => App.ProjectTabs.PaymentCert.renderPreview(null),
+        'payment-certificate': () => App.ProjectTabs.PaymentCert.renderPreview(),
         'villa-schedule': () => App.ProjectTabs.Schedule.schrenderPreview(fullData),
         'project-letter': () => App.ProjectTabs.Letters.renderPreview(),
         'project-report': () => App.ProjectTabs.Tools.renderPreview()
@@ -848,6 +893,9 @@ async function handleGeneratePdf() {
         fileName,
         watermarkData: watermarkText // Use watermarkData property
     });
+      if (activePreviewTab === 'payment-certificate' && App.ProjectTabs.PaymentCert.afterPDFGeneration) {
+        await App.ProjectTabs.PaymentCert.afterPDFGeneration();
+    }
 }
 
 function initResizer() {
@@ -870,6 +918,7 @@ function setupEventListeners() {
     App.DOMElements['site-update-file-input']?.addEventListener('change', handleSiteUpdateImport);
     App.DOMElements['save-to-file-btn']?.addEventListener('click', handleFileExport);
     App.DOMElements['new-project-btn']?.addEventListener('click', handleNewProject);
+    App.DOMElements['new-sample-project-btn']?.addEventListener('click', handleCreateSampleProject);
     App.DOMElements['save-project-btn']?.addEventListener('click', saveCurrentProject);
     App.DOMElements.controlTabs?.addEventListener('click', handleTabSwitch);
     App.DOMElements.previewTabs?.addEventListener('click', handleTabSwitch);
@@ -938,7 +987,7 @@ function cacheDOMElements() {
         'app-container', 'dashboard-view', 'project-view', 'resizer',
         'design-studio-btn',
         'vendor-master-search', 'vendor-search-results-body', 'project-vendor-list-body',            
-        'new-project-btn', 'search-box', 'project-list-body', 'load-from-file-btn', 'save-to-file-btn', 'xml-file-input', 'load-site-update-btn', 'site-update-file-input', 'toggle-invoices-btn',
+        'new-project-btn', 'search-box', 'new-sample-project-btn','project-list-body', 'load-from-file-btn', 'save-to-file-btn', 'xml-file-input', 'load-site-update-btn', 'site-update-file-input', 'toggle-invoices-btn',
         'pending-invoices-summary', 'pending-invoices-count', 'pending-invoices-amount', 'last-paid-amount', 'on-hold-amount', 'expiring-documents-summary', 'expiring-documents-count',
         'back-to-dashboard-btn', 'save-project-btn', 'project-view-title', 'page-size-selector', 'generate-pdf-btn',
         'main-tab', 'scope-tab', 'fees-tab', 'invoicing-tab', 'swimming-pool-tab', // MODIFICATION: Add new tab ID
@@ -975,5 +1024,6 @@ function cacheDOMElements() {
 }
 
 main();
-
+App.showDashboard = showDashboard;
+App.handleEditProject = handleEditProject;
 });

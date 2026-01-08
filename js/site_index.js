@@ -177,7 +177,7 @@ window.getProjectSchedule = getProjectSchedule;
              case 'vendor-management':
                 await VendorManagementModule.render(jobNo);break;
             case 'snags': await SnagListModule.render(jobNo, DOMElements.snagListContainer); break;
-            case 'payments': await PaymentListModule.render(jobNo, DOMElements.paymentListContainer, AppContext); break;
+            case 'payments': await PaymentListModule.render(jobNo, DOMElements.paymentListContainer); break;
             case 'inventory': 
                 await InventoryModule.render(jobNo, DOMElements.inventoryListContainer); 
                 await updateDashboardStats(jobNo);
@@ -1963,7 +1963,7 @@ async function handleReportButtonClick(e) {
         case 'long-lead':
             reportTitle = `Long Lead Items Report - ${jobNo}`;
             // Refactored to get data from the module itself
-            const project = await window.DB.getProject(jobNo);
+            //const project = await window.DB.getProject(jobNo);
             const schedule = await getProjectSchedule(project, siteData);
             const longLeadItems = LongLeadModule.getReportData(schedule, siteData.boq, siteData.longLeadLog);
             htmlContent = ReportingModule.generateLongLeadReportHtml(longLeadItems);

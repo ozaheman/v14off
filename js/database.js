@@ -26,7 +26,8 @@
         // New Stores required by your modules
         VENDORS: 'vendors',
         REFERRAL_ACCOUNTS: 'referralAccounts',
-        OTHER_ACCOUNTS: 'otherAccounts'
+        OTHER_ACCOUNTS: 'otherAccounts',
+        ASSETS: 'assets' // MODIFICATION: New store for assets
     };
 
     // ... [KEEP ALL THE INTERNAL FUNCTIONS: init, seedFinancialTemplates, makeRequest, mergeLists, mergeFiles as written in previous response] ...
@@ -75,6 +76,7 @@
                 createStore(STORES.VENDORS, { keyPath: 'id', autoIncrement: true });
                 createStore(STORES.REFERRAL_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
                 createStore(STORES.OTHER_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
+                createStore(STORES.ASSETS, { keyPath: 'id', autoIncrement: true }); // MODIFICATION: Create new store
             };
 
             request.onsuccess = async (event) => {
@@ -109,7 +111,7 @@
         return new Promise((resolve, reject) => {
             if (!db) return reject("Database not initialized.");
             if (!db.objectStoreNames.contains(storeName)) {
-                return reject(`Object store '${storeName}' not found.`);
+                 console.error(`Object store '${storeName}' not found.`);
                 return resolve([]); 
             }
             const transaction = db.transaction(storeName, mode);
@@ -174,6 +176,7 @@
     // --- Public API Object ---
     const publicAPI = {
         init,
+         STORES, // Expose store names for external use if needed
         
         // --- Generic CRUD Methods ---
         get: (storeName, key) => makeRequest(storeName, 'readonly', store => store.get(key)),
@@ -263,6 +266,10 @@
         deleteOtherAccount: (id) => publicAPI.delete(STORES.OTHER_ACCOUNTS, id),
 
         // --- Financial Template Methods ---
+        getAllAssets: () => publicAPI.getAll(STORES.ASSETS),
+        addAsset: (data) => publicAPI.add(STORES.ASSETS, data),
+        putAsset: (data) => publicAPI.put(STORES.ASSETS, data),
+        deleteAsset: (id) => publicAPI.delete(STORES.ASSETS, id),
         getFinancialTemplate: (id) => publicAPI.get(STORES.FINANCIAL_TEMPLATES, id),
         
         // --- Scrum Methods ---
@@ -469,7 +476,7 @@ const dueDate = new Date(new Date().setDate(today.getDate() + plannedDuration)).
             const { siteFiles, ...importedSiteData } = update;
             
             // 1. Fetch Existing Site Data
-            let existingSiteData = await publicAPI.getSiteData(update.jobNo);
+            let existingSiteData = await publicAPI.getSiteData(update.jobNo)|| { jobNo: update.jobNo };
             
             if (!existingSiteData) {
                 existingSiteData = { jobNo: update.jobNo }; // Fallback
