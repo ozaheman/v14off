@@ -11,13 +11,17 @@ export const PaymentListModule = {
         const project = await window.DB.getProject(jobNo);
         const siteData = await window.DB.getSiteData(jobNo);
 
-        const masterInvoices = (project.invoices || []).map(inv => ({...inv, isMaster: true}));
+        // Get the three sources of payments
+        const consultantInvoices = (project.invoices || []).map(inv => ({ ...inv, isMaster: true }));
         const manualPayments = siteData.paymentLog || [];
-
-        const allPayments = [...masterInvoices, ...manualPayments].sort((a, b) => new Date(b.date) - new Date(a.date));
+        // --- MODIFICATION START: Add Payment Certificates as a payment source ---
+        const certificates = (project.paymentCertificates || []).map(cert => ({ ...cert, isCert: true }));
+        
+        const allPayments = [...consultantInvoices, ...manualPayments, ...certificates].sort((a, b) => new Date(b.date) - new Date(a.date));
+        // --- MODIFICATION END ---
 
         if (allPayments.length === 0) {
-            container.innerHTML = '<p>No payments tracked for this project.</p>';
+            container.innerHTML = '<p>No payments, invoices, or certificates tracked for this project.</p>';
             return;
         }
 
@@ -26,29 +30,59 @@ export const PaymentListModule = {
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Description</th>
+                        <th>Description / Ref No.</th>
+                        <th>From</th>
                         <th>To Whom</th>
                         <th>Amount (AED)</th>
-                        <th>Status/Ref</th>
-                        <th>Receipt</th>
+                        <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
         for (const payment of allPayments) {
-            let receiptHtml = 'N/A';
-            if (payment.receiptFileId) {
-                const file = await window.DB.getFileById(payment.receiptFileId);
-                if(file) receiptHtml = `<a href="${file.dataUrl}" download="${file.name}">View</a>`;
+            let actionsHtml = 'N/A';
+            let statusHtml = '';
+            let description = '';
+            let toWhom = '';
+            let fromWhom = ''; // New variable for the "From" column
+            let rowStyle = '';
+            let amount = parseFloat(payment.amount || payment.total || payment.netPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            if (payment.isMaster) { // This is an invoice from consultant
+                actionsHtml = `<button class="view-invoice-btn secondary-button" data-job-no="${jobNo}" data-inv-no="${payment.no}">View</button>`;
+                statusHtml = `<span class="status-${(payment.status || 'draft').toLowerCase()}">${payment.status}</span>`;
+                description = `<strong>${payment.no}</strong>`;
+                fromWhom = 'Consultant'; // Invoices are FROM the consultant
+                toWhom = `Client (${project.clientName})`;
+                rowStyle = 'background-color: #e9ecef;';
+            } else if (payment.isCert) { // --- MODIFICATION: Handle certificate rendering ---
+                actionsHtml = `<span>View in Main App</span>`;
+                statusHtml = `<span class="status-approved">Certified</span>`;
+                description = `<strong>${payment.certNo}</strong>`;
+                fromWhom = 'Consultant'; // Certificates are FROM the consultant
+                toWhom = 'Contractor';
+                rowStyle = 'background-color: #e6fffa;'; // A light green to differentiate
+            } else { // This is a manual payment log
+                description = payment.description;
+                fromWhom = 'Contractor'; // Manual logs are typically payments BY the contractor
+                toWhom = payment.toWhom;
+                statusHtml = `${payment.mode || ''} ${payment.refNo || ''}`;
+                if (payment.receiptFileId) {
+                    const file = await window.DB.getFileById(payment.receiptFileId);
+                    if (file) actionsHtml = `<a href="${file.dataUrl}" download="${file.name}" class="primary-button">View Receipt</a>`;
+                }
             }
+            
             html += `
-                <tr style="${payment.isMaster ? 'background-color: #f8f9fa;' : ''}">
-                    <td>${payment.date}</td>
-                    <td>${payment.description || payment.no}</td>
-                    <td>${payment.toWhom || payment.type}</td>
-                    <td style="text-align:right;">${(parseFloat(payment.amount) || 0).toLocaleString()}</td>
-                    <td>${payment.isMaster ? `Pending (Invoice)` : `${payment.mode || ''} ${payment.refNo || ''}`}</td>
-                    <td>${receiptHtml}</td>
+                <tr style="${rowStyle}">
+                    <td>${new Date(payment.date).toLocaleDateString('en-CA')}</td>
+                    <td>${description}</td>
+                    <td><strong>${fromWhom}</strong></td>
+                    <td>${toWhom}</td>
+                    <td style="text-align:right;">${amount}</td>
+                    <td>${statusHtml}</td>
+                    <td>${actionsHtml}</td>
                 </tr>
             `;
         }
@@ -59,26 +93,17 @@ export const PaymentListModule = {
 
     showModal: (paymentId, domElements, context) => {
         const M = domElements.modalElements;
-        
-        // Reset form
         Object.keys(M).forEach(key => {
             if (M[key].tagName === 'INPUT' || M[key].tagName === 'TEXTAREA' || M[key].tagName === 'SELECT') M[key].value = '';
         });
-        
         M.modal.style.display = 'flex';
     },
 
     handleSave: async (modalElements, context) => {
         const M = modalElements;
         const { currentJobNo } = context.getState();
-
-        const amount = M.amount.value;
-        const toWhom = M.toWhom.value;
-        const date = M.date.value;
-
-        if (!amount || !toWhom || !date) {
-            return alert("Date, To Whom, and Amount are required fields.");
-        }
+        const { amount, toWhom, date } = M;
+        if (!amount.value || !toWhom.value || !date.value) return alert("Date, To Whom, and Amount are required fields.");
 
         const siteData = await window.DB.getSiteData(currentJobNo);
         if (!siteData.paymentLog) siteData.paymentLog = [];
@@ -86,11 +111,11 @@ export const PaymentListModule = {
         const newPayment = {
             id: `PAY-${Date.now()}`,
             description: M.description.value.trim(),
-            toWhom,
-            amount,
+            toWhom: toWhom.value,
+            amount: amount.value,
             mode: M.mode.value,
             refNo: M.refNo.value.trim(),
-            date,
+            date: date.value,
             chaseBy: M.chaseBy.value.trim(),
             chaseDate: M.chaseDate.value
         };
@@ -106,6 +131,6 @@ export const PaymentListModule = {
         await window.DB.putSiteData(siteData);
         
         M.modal.style.display = 'none';
-        context.onUpdate('payments'); // Or direct render call
+        context.onUpdate('payments');
     },
 };

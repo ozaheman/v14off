@@ -12,20 +12,30 @@ export const BudgetModule = {
 
         const tenderValue = parseFloat(project.tenderValue) || 0;
 
+        // --- MODIFICATION START: Fixed TypeError by converting item.id to a string ---
         // Calculate Variations from BOQ
-        const variations = (siteData.boq || []).filter(item => item.id && item.id.toUpperCase().startsWith('V.O'))
+        const variations = (siteData.boq || [])
+            .filter(item => item.id && String(item.id).toUpperCase().startsWith('V.O'))
             .reduce((sum, item) => sum + ((item.qty || 0) * (item.rate || 0)), 0);
+        // --- MODIFICATION END ---
             
         const revisedContractValue = tenderValue + variations;
 
-        // Calculate Payments Made
-        const masterInvoices = project.invoices || [];
+        // --- MODIFICATION START: Corrected payment calculation logic ---
+        // Calculate Payments Made against the construction budget
         const manualPayments = siteData.paymentLog || [];
+        const certificates = project.paymentCertificates || [];
         
+        // Aggregate all forms of payments/commitments against the construction budget
         const allPayments = [
-            ...masterInvoices.map(inv => ({ to: inv.type, amount: parseFloat(inv.amount) || 0 })),
-            ...manualPayments.map(p => ({ to: p.toWhom, amount: parseFloat(p.amount) || 0 }))
+            // Work certified for the contractor via Payment Certificates
+            ...certificates
+                .map(cert => ({ to: 'Contractor (Certified)', amount: parseFloat(cert.netPayable) || 0 })),
+            // Other manual payments logged on site (e.g., to suppliers, subcontractors)
+            ...manualPayments
+                .map(p => ({ to: p.toWhom, amount: parseFloat(p.amount) || 0 }))
         ];
+        // --- MODIFICATION END ---
 
         const paymentsByCategory = allPayments.reduce((acc, payment) => {
             const category = payment.to || 'General';
@@ -65,7 +75,7 @@ export const BudgetModule = {
                 <p>Approved Variations: <strong>${variations.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</strong></p>
                 <p>Revised Contract Value: <strong>${revisedContractValue.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</strong></p>
                 <hr>
-                <p>Total Paid: <strong>${totalPaid.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</strong></p>
+                <p>Total Paid / Certified: <strong>${totalPaid.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</strong></p>
                 <p>Balance to Pay: <strong>${balance.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</strong></p>
                 <h4>Budget Burnout</h4>
                 <div class="progress-bar-container"><div class="progress-bar" style="width:${burnoutPercentage.toFixed(1)}%;">${burnoutPercentage.toFixed(1)}%</div></div>
@@ -75,7 +85,7 @@ export const BudgetModule = {
                 <div>
                     <h4>Payments by Category</h4>
                     <table class="output-table">
-                        <thead><tr><th>Category</th><th>Amount Paid</th></tr></thead>
+                        <thead><tr><th>Category</th><th>Amount Paid / Certified</th></tr></thead>
                         <tbody>
                             ${Object.entries(paymentsByCategory).map(([cat, amt]) => `<tr><td>${cat}</td><td>${amt.toLocaleString('en-AE', { style: 'currency', currency: 'AED' })}</td></tr>`).join('')}
                         </tbody>

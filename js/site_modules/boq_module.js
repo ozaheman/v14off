@@ -13,11 +13,13 @@ export const BoqModule = {
             domElements.tableBody.addEventListener('click', (e) => BoqModule.handleClick(e, context));
         }
         // FIX [6]: Add listener for import
-        if(domElements.importInput) {
-            domElements.importInput.addEventListener('change', (e) => BoqModule.handleImport(e, context));
+         const importInput = document.getElementById('boq-import-input');
+        if(importInput) {
+            importInput.addEventListener('change', (e) => BoqModule.handleImport(e, context));
         }
-        if(domElements.exportBtn) {
-            domElements.exportBtn.addEventListener('click', () => BoqModule.handleExport(context));
+        const exportBtn = document.getElementById('boq-export-btn');
+        if(exportBtn) {
+            exportBtn.addEventListener('click', () => BoqModule.handleExport(context));
         }
          // NEW: Event delegation for dynamic action buttons
         const actionsContainer = boqTab.querySelector('#boq-actions-container');
@@ -45,10 +47,13 @@ export const BoqModule = {
                 (item.id && item.id.toLowerCase().includes(lowerCaseSearchTerm))
             );
         }
- const role = window.AppState.currentUserRole;
+ // MODIFICATION: Role-based rendering logic
+        const role = window.AppState.currentUserRole;
         const isClient = role === 'client';
-        boq.forEach((item) => {
-             const originalIndex = siteData.boq.indexOf(item); // Keep original index for edits
+        const canEdit = !isClient;
+
+        boq.forEach((item, index) => {
+            const originalIndex = siteData.boq.findIndex(originalItem => originalItem.id === item.id && originalItem.description === item.description);
             const amount = (item.qty || 0) * (item.rate || 0);
             const totalDonePerc = (item.prev_perc || 0) + (item.curr_perc || 0);
             const workDoneValue = amount * (totalDonePerc / 100);
@@ -56,8 +61,9 @@ export const BoqModule = {
             const row = domElements.tableBody.insertRow();
              row.dataset.index = originalIndex;
              // Client cannot edit anything.
-             const editable = isClient ? '' : 'contenteditable="true"';
-            row.innerHTML = `
+              const editable = canEdit ? 
+              'contenteditable="true"' : '';
+                row.innerHTML = `
                 <td ${editable} data-field="id">${item.id || ''}</td>
                 <td ${editable} data-field="description">${item.description}</td>
                 <td ${editable} data-field="unit">${item.unit}</td>
@@ -68,7 +74,7 @@ export const BoqModule = {
                 <td ${editable} data-field="curr_perc">${item.curr_perc || 0}</td>
                 <td>${totalDonePerc.toFixed(0)}%</td>
                 <td>${workDoneValue.toFixed(2)}</td>
-                <td>${isClient ? 'N/A' : '<button class="delete-boq-item-btn small-button danger-button">✕</button>'}</td>
+                <td>${canEdit ? '<button class="delete-boq-item-btn small-button danger-button">✕</button>' : 'N/A'}</td>
             `;
         });
          BoqModule.renderBoqActions(role);
@@ -83,12 +89,11 @@ export const BoqModule = {
         switch(role) {
             case 'site':
             case 'pm':
+            case 'contractor': // Also allow contractor to finalize
                 container.innerHTML = `<button id="generate-payment-cert-btn" class="primary-button">Finalize & Prepare for Payment Certificate</button>
                 <p class="small-text" style="margin-top: 5px;">This action will lock the "Current %" as the new "Previous %" and reset "Current %" to zero, preparing the data for the accounts department to generate the official certificate from the main dashboard.</p>`;
                 break;
-            case 'contractor':
-                container.innerHTML = `<button id="request-payment-cert-btn" class="primary-button">Request for Payment Certificate</button>`;
-                break;
+           
             case 'client':
                 // Client sees nothing here, just the read-only table
                 break;
@@ -110,10 +115,18 @@ export const BoqModule = {
         // NEW: Display previous and current certified values if they exist
         const prevValueEl = document.getElementById('boq-previous-value');
         const currentValueEl = document.getElementById('boq-current-value');
-        if(prevValueEl && currentValueEl) {
+         /* const currentPeriodValue = boq.reduce((sum, item) => {
+            const amount = (item.qty || 0) * (item.rate || 0);
+            return sum + (amount * ((item.curr_perc || 0) / 100));
+        }, 0);
+        const previousPeriodValue = totalWorkDoneValue - currentPeriodValue;*/
+         if(prevValueEl && currentValueEl) {
             prevValueEl.textContent = `${(siteData.totalPreviousCertified || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;
             currentValueEl.textContent = `${(siteData.totalCurrentCertified || 0).toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;
-        }
+        } 
+        
+        /*if(prevValueEl) prevValueEl.textContent = `${previousPeriodValue.toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;
+        if(currentValueEl) currentValueEl.textContent = `${currentPeriodValue.toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;*/
 
         if(domElements.totalValueDisplay) domElements.totalValueDisplay.textContent = `${totalValue.toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;
         if(domElements.workDoneDisplay) domElements.workDoneDisplay.textContent = `${totalWorkDoneValue.toLocaleString('en-US', {minimumFractionDigits: 2})} AED`;
@@ -193,9 +206,58 @@ export const BoqModule = {
         }
 
         const siteData = await window.DB.getSiteData(currentJobNo);
+        /*const project = await window.DB.getProject(currentJobNo);
+
+        const totalContractValue = siteData.boq.reduce((sum, item) => sum + ((item.qty || 0) * (item.rate || 0)), 0);
+
+        const existingCerts = siteData.paymentCertificates || [];
+        let previouslyCertifiedValue = 0;
+        if (existingCerts.length > 0) {
+            existingCerts.sort((a, b) => b.certNo.localeCompare(a.certNo));
+            const latestCert = existingCerts[0];
+            previouslyCertifiedValue = latestCert.workDoneValue - latestCert.retention - latestCert.advanceDeduction;
+        }
+
+        const totalWorkDoneToDate = siteData.boq.reduce((sum, item) => {
+            const amount = (item.qty || 0) * (item.rate || 0);
+            const totalPerc = (item.prev_perc || 0) + (item.curr_perc || 0);
+            return sum + (amount * (totalPerc / 100));
+        }, 0);
+
+        const retentionRate = 0.10;
+        const advancePaymentRate = 0.10;
+
+        const retention = totalWorkDoneToDate * retentionRate;
+        const advanceDeduction = totalWorkDoneToDate * advancePaymentRate;
         
-        // Finalize percentages
-         // --- NEW: Calculate previous and current amounts before finalizing ---
+        const totalForInvoice = (totalWorkDoneToDate - retention - advanceDeduction) - previouslyCertifiedValue;
+
+        const vatRate = project.vatRate || 5;
+        const vat = totalForInvoice * (vatRate / 100);
+        let netPayable = totalForInvoice + vat;
+        const roundOff = Math.round(netPayable) - netPayable;
+        netPayable = Math.round(netPayable);
+
+        if (!siteData.paymentCertificates) siteData.paymentCertificates = [];
+        const newCertNo = `IPC-${String(siteData.paymentCertificates.length + 1).padStart(2, '0')}`;
+        const newCertificate = {
+            certNo: newCertNo,
+            date: new Date().toISOString().split('T')[0],
+            status: 'Pending Generation',
+            totalContractValue,
+            workDonePercentage: totalContractValue > 0 ? ((totalWorkDoneToDate / totalContractValue) * 100).toFixed(2) : 0,
+            workDoneValue: totalWorkDoneToDate,
+            retention,
+            advanceDeduction,
+            previouslyCertified: previouslyCertifiedValue,
+            totalForInvoice,
+            vat,
+            roundOff,
+            netPayable
+        };
+         siteData.paymentCertificates.push(newCertificate);
+         // Finalize percentages
+         // --- NEW: Calculate previous and current amounts before finalizing ---*/
         let totalPreviousAmount = 0;
         let totalCurrentAmount = 0;
         siteData.boq.forEach(item => {
@@ -206,7 +268,7 @@ export const BoqModule = {
 
         // Store these calculated values on the siteData object
         siteData.totalPreviousCertified = totalPreviousAmount;
-        siteData.totalCurrentCertified = totalCurrentAmount;
+        siteData.totalCurrentCertified = totalCurrentAmount; 
         
         // Now, finalize percentages for the next cycle
         siteData.boq.forEach(item => {
@@ -235,15 +297,18 @@ export const BoqModule = {
     handleRequestCertificate: async (context) => {
         const { currentJobNo } = context.getState();
         if (!currentJobNo) return;
+        
+        // First, finalize the data just like the site engineer would
+        await BoqModule.handleGenerateCertificate(context);
 
-        await BulletinModule.post({
+        /*await BulletinModule.post({
             subject: 'Payment Certificate Request',
             details: `The contractor for project <strong>${currentJobNo}</strong> has requested a new payment certificate. Site engineer to update BOQ progress.`,
             jobNo: currentJobNo,
             assignedTo: 'Site Engineer/PM'
         });
         
-        alert("Your request for a payment certificate has been logged and sent to the Project Manager and Site Engineer.");
+        alert("Your request for a payment certificate has been logged and sent to the Project Manager and Site Engineer.");*/
     },
     handleImport: async (event, context) => {
         const { currentJobNo } = context.getState();
