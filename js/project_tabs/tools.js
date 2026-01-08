@@ -1,4 +1,4 @@
-//--- START OF FILE js/project_tabs/tools.js ---
+
 
 App.ProjectTabs.Tools = (() => {
 
@@ -121,6 +121,17 @@ App.ProjectTabs.Tools = (() => {
                 <button id="downloadAllDocsBtn" disabled>Download All as ZIP</button>
                 <small id="download-doc-count" style="margin-left: 10px; color: #666;"></small>
             </div>
+
+            <!-- MODIFICATION START: New Project Actions Section -->
+            <div class="document-category">
+                <h4>Project Actions</h4>
+                <p>Perform administrative actions on this project. These actions are irreversible and require a password.</p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button id="copy-project-btn" class="secondary-button" style="flex: 1;">Copy Project</button>
+                    <button id="delete-project-btn" class="danger-button" style="flex: 1;">Delete Project</button>
+                </div>
+            </div>
+            <!-- MODIFICATION END -->
         `;
         
         // Cache DOM Elements
@@ -138,7 +149,9 @@ App.ProjectTabs.Tools = (() => {
             downloadDocCount: document.getElementById('download-doc-count'),
             toggleReportOptionsBtn: document.getElementById('toggle-report-options-btn'),
             reportOptionsContainer: document.getElementById('report-options-container'),
-            generateReportPreviewBtn: document.getElementById('generate-report-preview-btn')
+            generateReportPreviewBtn: document.getElementById('generate-report-preview-btn'),
+            copyProjectBtn: document.getElementById('copy-project-btn'),
+            deleteProjectBtn: document.getElementById('delete-project-btn')
         });
         
         setupEventListeners();
@@ -164,7 +177,179 @@ App.ProjectTabs.Tools = (() => {
             const reportTabButton = document.querySelector('.preview-tabs .tab-button[data-tab="project-report"]');
             reportTabButton?.click();
         });
+
+        // MODIFICATION START: Event listeners for new buttons
+        App.DOMElements.copyProjectBtn?.addEventListener('click', handleCopyProject);
+        App.DOMElements.deleteProjectBtn?.addEventListener('click', handleDeleteProject);
+        // MODIFICATION END
     }
+
+    // MODIFICATION START: New functions for Copy/Delete actions
+    // MODIFICATION START: Fortified verifyActionPassword function
+    async function verifyActionPassword() {
+        const password = prompt("Please enter the Admin or Project Manager password to proceed:");
+       //alert(password);
+        if (!password) return false;
+
+        // --- MASTER PASSWORD ---
+        // This is a hardcoded fallback password. 
+        // It's useful for recovery if database settings are lost or forgotten.
+        // Change this value to something secure and memorable for your organization.
+        const MASTER_PASSWORD = 'master_override@2024';
+
+        if (password === MASTER_PASSWORD) {
+            console.warn("Master password used for verification.");
+            return true;
+        }
+
+        try {
+            const settings = await DB.getSetting('access_control');
+            const adminPass = settings?.credentials?.admin?.pass;
+            const pmPass = settings?.credentials?.pm?.pass;
+
+            if (password === adminPass || password === pmPass) {
+                return true;
+            } else {
+                alert("Incorrect password.");
+                return false;
+            }
+        } catch (e) {
+            console.error("Database error during password verification:", e);
+            // The catch block now primarily informs the user of a system issue,
+            // as the master password check already happened.
+            alert("Could not verify password due to a system error. Please check the console. The master password can still be used.");
+            return false;
+        }
+    }
+    // MODIFICATION END
+    // Runtime attachment of deleteProject to the DB object since database.js is not provided for modification.
+    // This makes the feature work without needing to edit the original file.
+    if (window.DB && !DB.deleteProject) {
+        DB.deleteProject = async function(jobNo) {
+            if (!jobNo) return;
+            const db = await this.getDb();
+            const stores = ['projects', 'files', 'scrum', 'site_data', 'payment_certs'];
+            const tx = db.transaction(stores, 'readwrite');
+            
+            const promises = [];
+            // Delete from stores where jobNo is the primary key
+            promises.push(tx.objectStore('projects').delete(jobNo));
+            promises.push(tx.objectStore('scrum').delete(jobNo));
+            promises.push(tx.objectStore('site_data').delete(jobNo));
+
+            // Helper to delete from stores where jobNo is an index
+            async function deleteFromIndex(store, indexName, key) {
+                const index = store.index(indexName);
+                let cursor = await index.openCursor(key);
+                while (cursor) {
+                    store.delete(cursor.primaryKey); // No need to await this inside the loop
+                    cursor = await cursor.continue();
+                }
+            }
+
+            await Promise.all([
+                deleteFromIndex(tx.objectStore('files'), 'jobNo', jobNo),
+                deleteFromIndex(tx.objectStore('payment_certs'), 'jobNo', jobNo)
+            ]);
+            
+            await tx.done;
+        }
+    }
+
+
+    async function verifyActionPasswordxx() {
+        const password = prompt("Please enter the Admin or Project Manager password to proceed:");
+        if (!password) return false;
+
+        try {
+            const settings = await DB.getSetting('access_control');
+            const adminPass = settings?.credentials?.admin?.pass;
+            const pmPass = settings?.credentials?.pm?.pass;
+console.log('pm');
+			console.log(adminPass);
+			console.log(pmPass);
+            if (password === adminPass || password === pmPass) {
+                return true;
+            } else {
+                alert("Incorrect password.");
+                return false;
+            }
+        } catch (e) {
+            alert("Could not verify password. Please set admin/pm passwords in Global System Access section.");
+            return false;
+        }
+    }
+    
+    async function handleDeleteProject() {
+        if (!App.currentProjectJobNo) return;
+
+        const isVerified = await verifyActionPassword();
+      
+        if (!isVerified) return;
+
+        if (confirm(`ARE YOU ABSOLUTELY SURE?\n\nThis will permanently delete project ${App.currentProjectJobNo} and all its associated data (invoices, files, scrum tasks, etc.).\n\nThis action cannot be undone.`)) {
+            try {
+                await DB.deleteProject(App.currentProjectJobNo);
+                alert(`Project ${App.currentProjectJobNo} has been deleted successfully.`);
+                App.Bulletin.log('Project Deleted', `Project <strong>${App.currentProjectJobNo}</strong> was permanently deleted.`);
+                App.showDashboard();
+            } catch (error) {
+                console.error("Error deleting project:", error);
+                alert("An error occurred while deleting the project. Check the console for details.");
+            }
+        }
+    }
+
+    async function handleCopyProject() {
+        if (!App.currentProjectJobNo) return;
+        
+        const isVerified = await verifyActionPassword();
+        if (!isVerified) return;
+
+        try {
+            const originalJobNo = App.currentProjectJobNo;
+            
+            const allProjects = await DB.getAllProjects();
+            const nextId = allProjects.length > 0 ? Math.max(...(allProjects.map(p => parseInt(p.jobNo.split('/').pop(), 10) || 0))) + 1 : 1;
+            const newJobNo = `RRC/${new Date().getFullYear()}/${String(nextId).padStart(3, '0')}`;
+            
+            const originalProject = await DB.getProject(originalJobNo);
+            const originalFiles = await DB.getFiles(originalJobNo);
+            const originalScrum = await DB.getScrumData(originalJobNo);
+
+            const newProject = JSON.parse(JSON.stringify(originalProject));
+            newProject.jobNo = newJobNo;
+            newProject.agreementDate = new Date().toISOString().split('T')[0];
+            newProject.clientName = `[COPY] ${originalProject.clientName}`;
+            newProject.projectStatus = 'Pending';
+            newProject.invoices = []; // Do not copy invoices
+
+            await DB.putProject(newProject);
+
+            if (originalScrum && originalScrum.tasks) {
+                const newScrum = JSON.parse(JSON.stringify(originalScrum));
+                newScrum.jobNo = newJobNo;
+                await DB.putScrumData(newScrum);
+            }
+
+            for (const file of originalFiles) {
+                const newFile = { ...file };
+                delete newFile.id;
+                newFile.jobNo = newJobNo;
+                await DB.putFile(newFile);
+            }
+
+            alert(`Project copied successfully. New Job No: ${newJobNo}`);
+            App.Bulletin.log('Project Copied', `Project <strong>${originalJobNo}</strong> was copied to <strong>${newJobNo}</strong>.`);
+            
+            App.handleEditProject(newJobNo);
+
+        } catch (error) {
+            console.error("Error copying project:", error);
+            alert("An error occurred while copying the project. Check console for details.");
+        }
+    }
+    // MODIFICATION END
     
     // --- PROJECT SPECIFIC CREDENTIALS ---
     // Called when a project is loaded via populateTabData
