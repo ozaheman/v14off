@@ -44,6 +44,16 @@
         /* MODIFICATION: New styles for table controls */
         .table-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
         .import-group label { margin-right: 5px; font-size: 0.9em; }
+        /* MODIFICATION START: Styles for Search Bar */
+        .table-search-input {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9em;
+            min-width: 200px;
+            margin-right: auto; /* Pushes other controls to the right */
+        }
+        /* MODIFICATION END */
     </style>
 </head>
 <body>
@@ -101,6 +111,9 @@
         <!-- MODIFICATION START: New Tabs -->
         <button class="tab-button" data-tab="referral-accounts">Referral Accounts</button>
         <button class="tab-button" data-tab="other-accounts">Other Accounts</button>
+         <!-- MODIFICATION START: New Tabs -->
+        <button class="tab-button" data-tab="asset-tracker">Asset Tracker</button>
+        <button class="tab-button" data-tab="tools">Tools</button>
         <!-- MODIFICATION END -->
     </div>
 
@@ -112,6 +125,9 @@
                 <button id="add-staff-btn" class="primary-button">+ Add Staff Member</button>
             </h3><!-- MODIFICATION START: Table Controls -->
             <div class="table-controls">
+             <!-- MODIFICATION START: Search Bar -->
+                <input type="search" class="table-search-input" data-table-selector="#staff-table" placeholder="Search staff...">
+                 <!-- MODIFICATION END -->
                 <button class="secondary-button export-csv-btn" data-table-id="staff-table" data-filename="Staff_List">Export as CSV</button>
                 <button class="secondary-button print-pdf-btn" data-element-id="staff-list-card" data-filename="Staff_List">Print as PDF</button>
             </div>
@@ -515,6 +531,9 @@
                 <div class="input-group"><label for="ref-contact">Contact Person</label><input type="text" id="ref-contact"></div>
                 <div class="input-group"><label for="ref-phone">Phone</label><input type="text" id="ref-phone"></div>
                 <div class="input-group"><label for="ref-email">Email</label><input type="email" id="ref-email"></div>
+                <!-- MODIFICATION START -->
+                <div class="input-group"><label for="ref-project-no">Associated Project</label><select id="ref-project-no"></select></div>
+                <!-- MODIFICATION END -->
                 <div class="input-group"><label for="ref-notes">Notes</label><textarea id="ref-notes" rows="3"></textarea></div>
                 <button id="add-referral-btn" class="primary-button">Add Referral</button>
             </div>
@@ -530,7 +549,7 @@
                 </div>
                 <div class="table-container">
                     <table class="output-table" id="referral-table">
-                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Project</th><th>Actions</th></tr></thead>
                         <tbody id="referral-accounts-body"></tbody>
                     </table>
                 </div>
@@ -546,6 +565,9 @@
                 <div class="input-group"><label for="other-contact">Contact Person</label><input type="text" id="other-contact"></div>
                 <div class="input-group"><label for="other-phone">Phone</label><input type="text" id="other-phone"></div>
                 <div class="input-group"><label for="other-email">Email</label><input type="email" id="other-email"></div>
+                 <!-- MODIFICATION START -->
+                <div class="input-group"><label for="other-project-no">Associated Project</label><select id="other-project-no"></select></div>
+                <!-- MODIFICATION END -->
                 <div class="input-group"><label for="other-notes">Notes</label><textarea id="other-notes" rows="3"></textarea></div>
                 <button id="add-other-account-btn" class="primary-button">Add Account</button>
             </div>
@@ -561,10 +583,68 @@
                 </div>
                 <div class="table-container">
                     <table class="output-table" id="other-accounts-table">
-                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>
+                          <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Project</th><th>Actions</th></tr></thead>
                         <tbody id="other-accounts-body"></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- MODIFICATION START: New Asset Tracker and Tools Tabs -->
+    <div id="asset-tracker-tab" class="tab-content">
+        <div class="hr-layout" style="grid-template-columns: 1fr 2.5fr;">
+            <div class="form-card">
+                <h3>Add New Asset/Inventory</h3>
+                <div class="input-group"><label for="asset-item-code">Item Code</label><input type="text" id="asset-item-code"></div>
+                <div class="input-group"><label for="asset-type">Type</label><input type="text" id="asset-type" placeholder="e.g., Laptop, Furniture"></div>
+                <div class="input-group"><label for="asset-location">Location</label><input type="text" id="asset-location"></div>
+                <div class="input-group"><label for="asset-department">Department</label><input type="text" id="asset-department"></div>
+                <div class="input-group"><label for="asset-project-no">Associated Project</label><select id="asset-project-no"></select></div>
+                <div class="input-group-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="input-group"><label for="asset-price">Price (AED)</label><input type="number" id="asset-price"></div>
+                    <div class="input-group"><label for="asset-date">Purchase Date</label><input type="date" id="asset-date"></div>
+                </div>
+                <div class="input-group"><label for="asset-warranty-expiry">Warranty Expiry</label><input type="date" id="asset-warranty-expiry"></div>
+                <div class="input-group"><label for="asset-note1">Note 1</label><textarea id="asset-note1" rows="2"></textarea></div>
+                <div class="input-group"><label for="asset-note2">Note 2</label><textarea id="asset-note2" rows="2"></textarea></div>
+                <button id="add-asset-btn" class="primary-button">Add Asset</button>
+            </div>
+            <div class="tool-card" id="asset-tracker-card">
+                <h3>Office Inventory & Asset List</h3>
+                <div class="table-controls">
+                    <button class="secondary-button export-csv-btn" data-table-id="asset-table" data-filename="Asset_List">Export as CSV</button>
+                    <button class="secondary-button print-pdf-btn" data-element-id="asset-tracker-card" data-filename="Asset_List">Print as PDF</button>
+                </div>
+                <div class="table-container">
+                    <table class="output-table" id="asset-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Type</th>
+                                <th>Location</th>
+                                <th>Department</th>
+                                <th>Project</th>
+                                <th>Price</th>
+                                <th>Purchase Date</th>
+                                <th>Warranty Expiry</th>
+                                <th>QR Data</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="asset-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tools-tab" class="tab-content">
+        <div class="tool-card">
+            <h3>Data Export Tools</h3>
+            <p>Download all application data in various formats.</p>
+            <div class="input-group-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <button id="export-xml-btn" class="primary-button">Download All Data (XML)</button>
+                <button id="export-zip-btn" class="primary-button">Download All Data (ZIP)</button>
             </div>
         </div>
     </div>
@@ -632,6 +712,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+<!-- MODIFICATION: Add JSZip for ZIP export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/wm_base64.js"></script>
 <script src="js/logo_base64.js"></script>
 <script src="js/constants.js"></script>

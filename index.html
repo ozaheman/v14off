@@ -267,6 +267,7 @@
 <button id="load-from-file-btn" class="secondary-button">Import Master</button>
 <button id="load-site-update-btn" class="secondary-button">Import Site Data</button>
 <button id="save-to-file-btn">Export Master</button>
+<button id="new-sample-project-btn" class="secondary-button">+ New Sample</button>
 <button id="new-project-btn">+ New Project</button>
 </div>
 </header>
@@ -337,7 +338,39 @@
                 <div id="documents-tab" class="tab-content"></div>
                 <div id="tender-tab" class="tab-content"></div>
                 <div id="vendors-tab" class="tab-content"></div>
-                <div id="payment-cert-tab" class="tab-content"></div>
+               <!-- MODIFICATION START: Updated Payment Cert Tab Structure -->
+                <div id="payment-cert-tab" class="tab-content">
+                   <h3>Payment Certificates</h3>
+                    <p>Generate certificates based on finalized BOQ data from the site engineer.</p>
+                    <div id="payment-cert-summary" style="margin-bottom: 15px; padding: 10px; background-color: #e9f7ff; border: 1px solid #b3e0ff; border-radius: 4px;">
+                        <!-- Summary populated by JS -->
+                    </div>
+                    <button id="generate-new-cert-btn" class="primary-button" style="width: 100%; margin-bottom: 15px;" disabled>Generate New Certificate from Site Data</button>
+                    <hr>
+                    <h4>BOQ Verification (Read-Only)</h4>
+                    <p class="small-text">This table shows the latest finalized BOQ from the site. Rows with new progress are highlighted.</p>
+                    <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px;">
+                        <table class="output-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Description</th>
+                                    <th style="text-align:right;">Prev %</th>
+                                    <th style="text-align:right;">New %</th>
+                                    <th style="text-align:right;">Total %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payment-cert-boq-body"></tbody>
+                        </table>
+                    </div>
+                    <hr>
+                    <h4>Certificate History</h4>
+                    <table class="output-table">
+                        <thead><tr><th>Cert. No.</th><th>Date</th><th>Net Payable</th><th>Action</th></tr></thead>
+                        <tbody id="cert-history-body"></tbody>
+                    </table>
+                </div>
+                <!-- MODIFICATION END -->
                 <div id="schedule-tab" class="tab-content"></div>
                 <div id="project-letters-tab" class="tab-content"></div>
                 <div id="tools-tab" class="tab-content"></div>
@@ -389,6 +422,7 @@
            
         </div>
     </div>
+</div>
 </div>
 
 <!-- Modals -->
@@ -514,7 +548,7 @@
 <script src="js/letter_formats.js"></script>
 
 <script src="js/project_document_formats.js"></script>
-
+<script src="js/sample_projects.js"></script>
 <script src="js/xml_handler.js"></script>
 
 <script src="js/pdf_generator.js"></script>

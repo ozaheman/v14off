@@ -42,6 +42,16 @@
         .reminder-list li.danger { background: #fbe9e7; border-left-color: #dc3545; }
          .table-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
         .import-group label { margin-right: 5px; font-size: 0.9em; }
+        /* MODIFICATION START: Styles for Search Bar */
+        .table-search-input {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9em;
+            min-width: 200px;
+            margin-right: auto; /* Pushes other controls to the right */
+        }
+        /* MODIFICATION END */
     </style>
 </head>
 <body>
@@ -50,7 +60,7 @@
     <header class="app-header">
         <h1>HR & Office Management</h1>
         <div class="dashboard-header-controls">
-        
+        <button id="logout-btn" class="secondary-button" style="display: none;">Logout</button>
         <form action="revenue.html"><input type="submit" value="Business Intelligence" /></form>
 <form action="index.html"><input type="submit" value="← Back to Main Dashboard" /></form>
         
@@ -69,6 +79,8 @@
         <button class="tab-button" data-tab="payroll">Payroll Tools</button>
             <button class="tab-button" data-tab="letters">Letter Generation</button>
             <!-- MODIFICATION: Add Efficiency Report tab -->
+            <button class="tab-button" data-tab="vat-report">VAT Report</button>
+        <!-- MODIFICATION END -->
         <button class="tab-button" data-tab="annual-expenses">Annual Expenses</button>
         <button class="tab-button" data-tab="increments">Staff Increments</button>
    
@@ -77,6 +89,9 @@
       <button class="tab-button" data-tab="vat-report">VAT Report</button>
       <button class="tab-button" data-tab="referral-accounts">Referral Accounts</button>
       <button class="tab-button" data-tab="other-accounts">Other Accounts</button>
+       <!-- MODIFICATION START: New Tabs -->
+        <button class="tab-button" data-tab="asset-tracker">Asset Tracker</button>
+        <button class="tab-button" data-tab="tools">Tools</button>
       <!-- MODIFICATION END -->
         </div>
 
@@ -88,6 +103,9 @@
                 <button id="add-staff-btn" class="primary-button">+ Add Staff Member</button>
             </h3><!-- MODIFICATION START: Table Controls -->
             <div class="table-controls">
+            <!-- MODIFICATION START: Search Bar -->
+                <input type="search" class="table-search-input" data-table-selector="#staff-table" placeholder="Search staff...">
+                 <!-- MODIFICATION END -->
                 <button class="secondary-button export-csv-btn" data-table-id="staff-table" data-filename="Staff_List">Export as CSV</button>
                 <button class="secondary-button print-pdf-btn" data-element-id="staff-list-card" data-filename="Staff_List">Print as PDF</button>
             </div>
@@ -175,6 +193,11 @@
                         <option value="warning">Warning Letter</option>
                         <option value="termination">Termination Letter</option>
                         <option value="salary_certificate">Salary Certificate</option>
+                         <!-- MODIFICATION START: New Letter types -->
+                        <option value="experience_certificate">Experience Certificate</option>
+                        <option value="internship_offer">Internship Offer Letter</option>
+                        <option value="noc_request">NOC Request Letter</option>
+                        <!-- MODIFICATION END -->
                         <option value="notice">General Notice</option>
                         <option value="authority">Authority Letter</option>
                     </select>
@@ -281,6 +304,7 @@
                 <h3>Leave History</h3>
                  <!-- MODIFICATION START: Table Controls -->
                 <div class="table-controls">
+                 <input type="search" class="table-search-input" data-table-selector="#leave-table" placeholder="Search leave records...">
                     <button class="secondary-button export-csv-btn" data-table-id="leave-table" data-filename="Leave_History">Export as CSV</button>
                     <button class="secondary-button print-pdf-btn" data-element-id="leave-history-card" data-filename="Leave_History">Print as PDF</button>
                 </div>
@@ -337,6 +361,7 @@
                 </div>
                 <!-- MODIFICATION START: Table Controls -->
                 <div class="table-controls" style="margin-top: 15px;">
+                 <input type="search" class="table-search-input" data-table-selector="#expense-table" placeholder="Search expenses...">
                     <button class="secondary-button export-csv-btn" data-table-id="expense-table" data-filename="Office_Expenses">Export as CSV</button>
                     <button class="secondary-button print-pdf-btn" data-element-id="expense-history-card" data-filename="Office_Expenses">Print as PDF</button>
                 </div>
@@ -364,6 +389,9 @@
         </div>
         <div class="tool-card">
             <h3>List of Annual Expenses</h3>
+            <div class="table-controls">
+                <input type="search" class="table-search-input" data-table-selector="#annual-expense-table" placeholder="Search annual expenses...">
+            </div>
             <p>These expenses are automatically prorated into monthly costs in the Business Intelligence dashboard.</p>
             <div class="table-container">
                 <table class="output-table">
@@ -404,6 +432,7 @@
                 <h3>Increment History</h3>
                 <!-- MODIFICATION START: Table Controls -->
                 <div class="table-controls">
+                 <input type="search" class="table-search-input" data-table-selector="#increment-table" placeholder="Search increments...">
                     <button class="secondary-button export-csv-btn" data-table-id="increment-table" data-filename="Increment_History">Export as CSV</button>
                     <button class="secondary-button print-pdf-btn" data-element-id="increment-history-card" data-filename="Increment_History">Print as PDF</button>
                 </div>
@@ -419,39 +448,42 @@
     </div>
     
     <!-- MODIFICATION: Add new tab-content div for the report -->
-        <div id="efficiency-tab" class="tab-content"><div class="tool-card" id="efficiency-report-card">
-            <h2>Staff Efficiency Report</h2>
-            <p>This report analyzes completed scrum tasks to compare planned duration vs. actual duration. An efficiency score greater than 100% means tasks were completed faster than planned.</p>
-             <!-- MODIFICATION START: Table Controls -->
-                <div class="table-controls">
-                    <button class="secondary-button export-csv-btn" data-table-id="efficiency-table" data-filename="Efficiency_Report">Export as CSV</button>
-                    <button class="secondary-button print-pdf-btn" data-element-id="efficiency-report-card" data-filename="Efficiency_Report">Print as PDF</button>
-                </div>
-                <!-- MODIFICATION END -->
-            <table class="output-table" id="efficiency-table">
-           
-                <thead>
-                    <tr>
-                        <th>Staff Member</th>
-                        <th>Completed Tasks</th>
-                        <th>Total Planned Days</th>
-                        <th>Total Actual Days</th>
-                        <th>Efficiency Score</th>
-                    </tr>
-                </thead>
-                <tbody id="efficiency-report-body">
-                    <tr><td colspan="5" style="text-align:center;">Loading report...</td></tr>
-                </tbody>
-            </table>
+   <div id="efficiency-tab" class="tab-content">
+         <div class="tool-card" id="efficiency-report-card">
+            <h3>Staff Efficiency Report</h3>
+            <p>This report analyzes completed scrum tasks to compare planned duration vs. actual duration. An efficiency score greater than 100% means tasks were completed faster than planned.</p>   
+            <!-- MODIFICATION START: Table Controls -->
+            <div class="table-controls">
+             <input type="search" class="table-search-input" data-table-selector="#efficiency-table" placeholder="Search by staff member...">
+                <button class="secondary-button export-csv-btn" data-table-id="efficiency-table" data-filename="Efficiency_Report">Export as CSV</button>
+                <button class="secondary-button print-pdf-btn" data-element-id="efficiency-report-card" data-filename="Efficiency_Report">Print as PDF</button>
+            </div>
+            <!-- MODIFICATION END -->
+            <div class="table-container">
+                <table class="output-table" id="efficiency-table">
+                    <thead>
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Completed Tasks</th>
+                            <th>Total Planned Days</th>
+                            <th>Total Actual Days</th>
+                            <th>Efficiency Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="efficiency-report-body">
+                        <tr><td colspan="5" style="text-align:center;">Loading report...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        </div>
-
+    </div>
     <!-- MODIFICATION START: New Tabs Content -->
     <div id="vat-report-tab" class="tab-content">
         <div class="tool-card" id="vat-report-card">
             <h3>Monthly VAT Summary (based on Office Expenses)</h3>
             <p>This report calculates a 5% VAT on all logged office expenses, grouped by month.</p>
             <div class="table-controls">
+             <input type="search" class="table-search-input" data-table-selector="#vat-table" placeholder="Search by month...">
                 <button class="secondary-button export-csv-btn" data-table-id="vat-table" data-filename="VAT_Report">Export as CSV</button>
                 <button class="secondary-button print-pdf-btn" data-element-id="vat-report-card" data-filename="VAT_Report">Print as PDF</button>
             </div>
@@ -480,12 +512,16 @@
                 <div class="input-group"><label for="ref-contact">Contact Person</label><input type="text" id="ref-contact"></div>
                 <div class="input-group"><label for="ref-phone">Phone</label><input type="text" id="ref-phone"></div>
                 <div class="input-group"><label for="ref-email">Email</label><input type="email" id="ref-email"></div>
+                <!-- MODIFICATION START -->
+                <div class="input-group"><label for="ref-project-no">Associated Project</label><select id="ref-project-no"></select></div>
+                <!-- MODIFICATION END -->
                 <div class="input-group"><label for="ref-notes">Notes</label><textarea id="ref-notes" rows="3"></textarea></div>
                 <button id="add-referral-btn" class="primary-button">Add Referral</button>
             </div>
             <div class="tool-card" id="referral-accounts-card">
                 <h3>Referral Accounts List</h3>
                 <div class="table-controls">
+                <input type="search" class="table-search-input" data-table-selector="#referral-table" placeholder="Search referrals...">
                     <button class="secondary-button export-csv-btn" data-table-id="referral-table" data-filename="Referral_Accounts">Export as CSV</button>
                     <button class="secondary-button print-pdf-btn" data-element-id="referral-accounts-card" data-filename="Referral_Accounts">Print as PDF</button>
                     <div class="import-group">
@@ -495,7 +531,7 @@
                 </div>
                 <div class="table-container">
                     <table class="output-table" id="referral-table">
-                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>
+                         <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Project</th><th>Actions</th></tr></thead>
                         <tbody id="referral-accounts-body"></tbody>
                     </table>
                 </div>
@@ -511,12 +547,16 @@
                 <div class="input-group"><label for="other-contact">Contact Person</label><input type="text" id="other-contact"></div>
                 <div class="input-group"><label for="other-phone">Phone</label><input type="text" id="other-phone"></div>
                 <div class="input-group"><label for="other-email">Email</label><input type="email" id="other-email"></div>
+                 <!-- MODIFICATION START -->
+                <div class="input-group"><label for="other-project-no">Associated Project</label><select id="other-project-no"></select></div>
+                <!-- MODIFICATION END -->
                 <div class="input-group"><label for="other-notes">Notes</label><textarea id="other-notes" rows="3"></textarea></div>
                 <button id="add-other-account-btn" class="primary-button">Add Account</button>
             </div>
             <div class="tool-card" id="other-accounts-card">
                 <h3>Other Accounts List</h3>
                 <div class="table-controls">
+                <input type="search" class="table-search-input" data-table-selector="#other-accounts-table" placeholder="Search other accounts...">
                     <button class="secondary-button export-csv-btn" data-table-id="other-accounts-table" data-filename="Other_Accounts">Export as CSV</button>
                     <button class="secondary-button print-pdf-btn" data-element-id="other-accounts-card" data-filename="Other_Accounts">Print as PDF</button>
                      <div class="import-group">
@@ -526,10 +566,69 @@
                 </div>
                 <div class="table-container">
                     <table class="output-table" id="other-accounts-table">
-                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>
+                          <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Project</th><th>Actions</th></tr></thead>
                         <tbody id="other-accounts-body"></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+     <!-- MODIFICATION START: New Asset Tracker and Tools Tabs -->
+    <div id="asset-tracker-tab" class="tab-content">
+        <div class="hr-layout" style="grid-template-columns: 1fr 2.5fr;">
+            <div class="form-card">
+                <h3>Add New Asset/Inventory</h3>
+                <div class="input-group"><label for="asset-item-code">Item Code</label><input type="text" id="asset-item-code"></div>
+                <div class="input-group"><label for="asset-type">Type</label><input type="text" id="asset-type" placeholder="e.g., Laptop, Furniture"></div>
+                <div class="input-group"><label for="asset-location">Location</label><input type="text" id="asset-location"></div>
+                <div class="input-group"><label for="asset-department">Department</label><input type="text" id="asset-department"></div>
+                <div class="input-group"><label for="asset-project-no">Associated Project</label><select id="asset-project-no"></select></div>
+                <div class="input-group-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="input-group"><label for="asset-price">Price (AED)</label><input type="number" id="asset-price"></div>
+                    <div class="input-group"><label for="asset-date">Purchase Date</label><input type="date" id="asset-date"></div>
+                </div>
+                <div class="input-group"><label for="asset-warranty-expiry">Warranty Expiry</label><input type="date" id="asset-warranty-expiry"></div>
+                <div class="input-group"><label for="asset-note1">Note 1</label><textarea id="asset-note1" rows="2"></textarea></div>
+                <div class="input-group"><label for="asset-note2">Note 2</label><textarea id="asset-note2" rows="2"></textarea></div>
+                <button id="add-asset-btn" class="primary-button">Add Asset</button>
+            </div>
+            <div class="tool-card" id="asset-tracker-card">
+                <h3>Office Inventory & Asset List</h3>
+                <div class="table-controls">
+                 <input type="search" class="table-search-input" data-table-selector="#asset-table" placeholder="Search assets...">
+                    <button class="secondary-button export-csv-btn" data-table-id="asset-table" data-filename="Asset_List">Export as CSV</button>
+                    <button class="secondary-button print-pdf-btn" data-element-id="asset-tracker-card" data-filename="Asset_List">Print as PDF</button>
+                </div>
+                <div class="table-container">
+                    <table class="output-table" id="asset-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Type</th>
+                                <th>Location</th>
+                                <th>Department</th>
+                                <th>Project</th>
+                                <th>Price</th>
+                                <th>Purchase Date</th>
+                                <th>Warranty Expiry</th>
+                                <th>QR Data</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="asset-list-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tools-tab" class="tab-content">
+        <div class="tool-card">
+            <h3>Data Export Tools</h3>
+            <p>Download all application data in various formats.</p>
+            <div class="input-group-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <button id="export-xml-btn" class="primary-button">Download All Data (XML)</button>
+                <button id="export-zip-btn" class="primary-button">Download All Data (ZIP)</button>
             </div>
         </div>
     </div>
@@ -597,6 +696,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+<!-- MODIFICATION: Add JSZip for ZIP export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="js/wm_base64.js"></script>
 <script src="js/logo_base64.js"></script>
 <script src="js/constants.js"></script>
