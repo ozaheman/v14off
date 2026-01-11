@@ -37,6 +37,12 @@ function init() {
         <div class="input-group"><label>Extended Fee (AED/month)</label><input type="number" id="extendedSupervisionFee" value="7500"></div>
         <h4>Notes & Exclusions</h4>
         <div class="checkbox-group" id="notes-group"></div>
+         <!-- MODIFICATION START -->
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="custom-notes">Additional Notes & Exclusions</label>
+            <textarea id="custom-notes" rows="3" placeholder="Enter any custom notes or exclusions to be added to the agreement..."></textarea>
+        </div>
+        <!-- MODIFICATION END -->
     `;
     
     Object.assign(App.DOMElements, {
@@ -55,7 +61,10 @@ function init() {
         lumpSumGroup: document.getElementById('lump-sum-group'),
         percentageGroup: document.getElementById('percentage-group'),
         notesGroup: document.getElementById('notes-group'),
-        addMilestoneBtn: document.getElementById('add-milestone-btn')
+        addMilestoneBtn: document.getElementById('add-milestone-btn'),
+        // MODIFICATION START
+        customNotes: document.getElementById('custom-notes')
+        // MODIFICATION END
     });
 
     const notesContainer = App.DOMElements.notesGroup;
@@ -127,7 +136,9 @@ function populateTabData(project) {
         const cb = document.getElementById(item.id); 
         if (cb) cb.checked = project.notes?.[item.id] || false; 
     });
-    
+      // MODIFICATION START
+    if (App.DOMElements.customNotes) App.DOMElements.customNotes.value = project.customNotes || '';
+    // MODIFICATION END
     const milestones = (project.feeMilestones && project.feeMilestones.length > 0)
         ? project.feeMilestones
         : CONTENT.FEE_MILESTONES.map(m => ({ id: m.id, text: m.text, percentage: m.defaultPercentage }));
@@ -145,7 +156,9 @@ function getTabData() {
     data.supervisionBillingMethod = document.querySelector('input[name="supervisionBillingMethod"]:checked')?.value;
     
     CONTENT.NOTES.forEach(item => { const cb = document.getElementById(item.id); if(cb) data.notes[item.id] = cb.checked; });
-    
+     // MODIFICATION START
+    data.customNotes = App.DOMElements.customNotes?.value.trim();
+    // MODIFICATION END
     App.DOMElements.feeMilestoneGroup.querySelectorAll('.milestone-percent-group').forEach(row => {
         data.feeMilestones.push({
             id: row.dataset.id,

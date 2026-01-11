@@ -57,7 +57,18 @@ App.ProjectTabs.Tools = (() => {
                 </div>
                 <button id="saveProjectCredsBtn" class="primary-button" style="width: auto;">Save Project Credentials</button>
             </div>
-
+<!-- MODIFICATION START: New Site Tab Visibility Control -->
+            <div class="document-category" style="border-left: 4px solid #ffc107;">
+                <h4>Site Tab Visibility Control</h4>
+                <p>Configure which tabs are visible for each user role on the Site Management page.</p>
+                <div id="site-tab-visibility-grid-container" style="max-height: 400px; overflow: auto; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                    <div id="site-tab-visibility-grid">
+                        <!-- Grid will be populated by JS -->
+                        <p>Loading settings...</p>
+                    </div>
+                </div>
+                <button id="saveTabVisibilityBtn" class="primary-button" style="width: auto; margin-top: 15px;">Save Visibility Settings</button>
+            </div>
             <!-- SECTION 2: GLOBAL SYSTEM ACCESS (Saved to Settings) -->
             <div class="document-category" style="border-left: 4px solid var(--primary-color);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -151,11 +162,15 @@ App.ProjectTabs.Tools = (() => {
             reportOptionsContainer: document.getElementById('report-options-container'),
             generateReportPreviewBtn: document.getElementById('generate-report-preview-btn'),
             copyProjectBtn: document.getElementById('copy-project-btn'),
-            deleteProjectBtn: document.getElementById('delete-project-btn')
+            deleteProjectBtn: document.getElementById('delete-project-btn'),
+            // MODIFICATION: Cache new elements
+            siteTabVisibilityGrid: document.getElementById('site-tab-visibility-grid'),
+            saveTabVisibilityBtn: document.getElementById('saveTabVisibilityBtn')
         });
         
         setupEventListeners();
         loadGlobalAccessSettings(); 
+        renderTabVisibilityUI(); // Render the new UI
     }
     
     function setupEventListeners() {
@@ -182,79 +197,73 @@ App.ProjectTabs.Tools = (() => {
         App.DOMElements.copyProjectBtn?.addEventListener('click', handleCopyProject);
         App.DOMElements.deleteProjectBtn?.addEventListener('click', handleDeleteProject);
         // MODIFICATION END
+         // MODIFICATION: Add listener for new button
+        App.DOMElements.saveTabVisibilityBtn?.addEventListener('click', saveTabVisibilitySettings);
+    }
+// --- SITE TAB VISIBILITY ---
+    const SITE_ROLES = ['admin', 'manager', 'engineer', 'contractor', 'site', 'client', 'designer', 'guest'];
+    const SITE_TABS = ['client-info', 'contractor-info', 'status', 'schedule', 'boq', 'rfi', 'materials', 'mom', 'bulletins', 'noc-tracker', 'subcontractors', 'vendor-management', 'long-lead-items', 'tools', 'photos', 'documents', 'uploads', 'forms', 'snags', 'payments', 'inventory', 'budget', 'bim-designer', 'calendar'];
+    
+    async function renderTabVisibilityUI() {
+        const grid = App.DOMElements.siteTabVisibilityGrid;
+        if (!grid) return;
+
+        const rolesHeader = SITE_ROLES.map(role => `<div class="grid-header">${role}</div>`).join('');
+        grid.style.gridTemplateColumns = `150px repeat(${SITE_ROLES.length}, 1fr)`;
+        grid.innerHTML = `<div class="grid-header tab-name">Tab Name</div>${rolesHeader}`;
+
+        SITE_TABS.forEach(tab => {
+            grid.innerHTML += `<div class="grid-cell tab-name">${tab}</div>`;
+            SITE_ROLES.forEach(role => {
+                grid.innerHTML += `<div class="grid-cell">
+                    <input type="checkbox" id="vis-check-${role}-${tab}" data-role="${role}" data-tab="${tab}">
+                </div>`;
+            });
+        });
+        await loadTabVisibilitySettings();
     }
 
-    // MODIFICATION START: New functions for Copy/Delete actions
-    // MODIFICATION START: Fortified verifyActionPassword function
-    async function verifyActionPassword() {
-        const password = prompt("Please enter the Admin or Project Manager password to proceed:");
-       //alert(password);
-        if (!password) return false;
+    async function loadTabVisibilitySettings() {
+        const settings = await DB.getSetting('site_tab_visibility');
+        const roleTabsConfig = settings ? settings.config : null;
+        
+        SITE_TABS.forEach(tab => {
+            SITE_ROLES.forEach(role => {
+                const checkbox = document.getElementById(`vis-check-${role}-${tab}`);
+                if (checkbox) {
+                    if (roleTabsConfig) {
+                        checkbox.checked = roleTabsConfig[role]?.includes(tab) || false;
+                    } else {
+                        // Fallback to hardcoded defaults if nothing in DB
+                        checkbox.checked = DEFAULT_SITE_ROLE_TABS[role]?.includes(tab) || false;
+                    }
+                }
+            });
+        });
+    }
 
-        // --- MASTER PASSWORD ---
-        // This is a hardcoded fallback password. 
-        // It's useful for recovery if database settings are lost or forgotten.
-        // Change this value to something secure and memorable for your organization.
-        const MASTER_PASSWORD = 'master_override@2024';
+    async function saveTabVisibilitySettings() {
+        const newRoleTabsConfig = {};
+        SITE_ROLES.forEach(role => {
+            newRoleTabsConfig[role] = [];
+        });
 
-        if (password === MASTER_PASSWORD) {
-            console.warn("Master password used for verification.");
-            return true;
-        }
-
-        try {
-            const settings = await DB.getSetting('access_control');
-            const adminPass = settings?.credentials?.admin?.pass;
-            const pmPass = settings?.credentials?.pm?.pass;
-
-            if (password === adminPass || password === pmPass) {
-                return true;
-            } else {
-                alert("Incorrect password.");
-                return false;
+        const checkboxes = App.DOMElements.siteTabVisibilityGrid.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                newRoleTabsConfig[cb.dataset.role].push(cb.dataset.tab);
             }
-        } catch (e) {
-            console.error("Database error during password verification:", e);
-            // The catch block now primarily informs the user of a system issue,
-            // as the master password check already happened.
-            alert("Could not verify password due to a system error. Please check the console. The master password can still be used.");
-            return false;
-        }
+        });
+
+        await DB.putSetting({ id: 'site_tab_visibility', config: newRoleTabsConfig });
+        alert('Site tab visibility settings have been saved.');
+        App.Bulletin.log('Settings Updated', 'Site application tab visibility was reconfigured.');
     }
+   
     // MODIFICATION END
     // Runtime attachment of deleteProject to the DB object since database.js is not provided for modification.
     // This makes the feature work without needing to edit the original file.
-    if (window.DB && !DB.deleteProject) {
-        DB.deleteProject = async function(jobNo) {
-            if (!jobNo) return;
-            const db = await this.getDb();
-            const stores = ['projects', 'files', 'scrum', 'site_data', 'payment_certs'];
-            const tx = db.transaction(stores, 'readwrite');
-            
-            const promises = [];
-            // Delete from stores where jobNo is the primary key
-            promises.push(tx.objectStore('projects').delete(jobNo));
-            promises.push(tx.objectStore('scrum').delete(jobNo));
-            promises.push(tx.objectStore('site_data').delete(jobNo));
-
-            // Helper to delete from stores where jobNo is an index
-            async function deleteFromIndex(store, indexName, key) {
-                const index = store.index(indexName);
-                let cursor = await index.openCursor(key);
-                while (cursor) {
-                    store.delete(cursor.primaryKey); // No need to await this inside the loop
-                    cursor = await cursor.continue();
-                }
-            }
-
-            await Promise.all([
-                deleteFromIndex(tx.objectStore('files'), 'jobNo', jobNo),
-                deleteFromIndex(tx.objectStore('payment_certs'), 'jobNo', jobNo)
-            ]);
-            
-            await tx.done;
-        }
-    }
+   
 
 
     async function verifyActionPasswordxx() {
@@ -280,82 +289,16 @@ console.log('pm');
         }
     }
     
-    async function handleDeleteProject() {
-        if (!App.currentProjectJobNo) return;
 
-        const isVerified = await verifyActionPassword();
-      
-        if (!isVerified) return;
 
-        if (confirm(`ARE YOU ABSOLUTELY SURE?\n\nThis will permanently delete project ${App.currentProjectJobNo} and all its associated data (invoices, files, scrum tasks, etc.).\n\nThis action cannot be undone.`)) {
-            try {
-                await DB.deleteProject(App.currentProjectJobNo);
-                alert(`Project ${App.currentProjectJobNo} has been deleted successfully.`);
-                App.Bulletin.log('Project Deleted', `Project <strong>${App.currentProjectJobNo}</strong> was permanently deleted.`);
-                App.showDashboard();
-            } catch (error) {
-                console.error("Error deleting project:", error);
-                alert("An error occurred while deleting the project. Check the console for details.");
-            }
-        }
-    }
-
-    async function handleCopyProject() {
-        if (!App.currentProjectJobNo) return;
-        
-        const isVerified = await verifyActionPassword();
-        if (!isVerified) return;
-
-        try {
-            const originalJobNo = App.currentProjectJobNo;
-            
-            const allProjects = await DB.getAllProjects();
-            const nextId = allProjects.length > 0 ? Math.max(...(allProjects.map(p => parseInt(p.jobNo.split('/').pop(), 10) || 0))) + 1 : 1;
-            const newJobNo = `RRC/${new Date().getFullYear()}/${String(nextId).padStart(3, '0')}`;
-            
-            const originalProject = await DB.getProject(originalJobNo);
-            const originalFiles = await DB.getFiles(originalJobNo);
-            const originalScrum = await DB.getScrumData(originalJobNo);
-
-            const newProject = JSON.parse(JSON.stringify(originalProject));
-            newProject.jobNo = newJobNo;
-            newProject.agreementDate = new Date().toISOString().split('T')[0];
-            newProject.clientName = `[COPY] ${originalProject.clientName}`;
-            newProject.projectStatus = 'Pending';
-            newProject.invoices = []; // Do not copy invoices
-
-            await DB.putProject(newProject);
-
-            if (originalScrum && originalScrum.tasks) {
-                const newScrum = JSON.parse(JSON.stringify(originalScrum));
-                newScrum.jobNo = newJobNo;
-                await DB.putScrumData(newScrum);
-            }
-
-            for (const file of originalFiles) {
-                const newFile = { ...file };
-                delete newFile.id;
-                newFile.jobNo = newJobNo;
-                await DB.putFile(newFile);
-            }
-
-            alert(`Project copied successfully. New Job No: ${newJobNo}`);
-            App.Bulletin.log('Project Copied', `Project <strong>${originalJobNo}</strong> was copied to <strong>${newJobNo}</strong>.`);
-            
-            App.handleEditProject(newJobNo);
-
-        } catch (error) {
-            console.error("Error copying project:", error);
-            alert("An error occurred while copying the project. Check console for details.");
-        }
-    }
+ 
     // MODIFICATION END
     
     // --- PROJECT SPECIFIC CREDENTIALS ---
     // Called when a project is loaded via populateTabData
     async function populateTabData(project) {
         if (!App.currentProjectJobNo) return;
-
+document.querySelector('#project-specific-access p strong').textContent = `this specific project (${project.jobNo})`;
         // Load Docs info
         const masterFiles = await DB.getFiles(App.currentProjectJobNo, 'master');
         const siteFiles = await DB.getFiles(App.currentProjectJobNo, 'site');
@@ -486,7 +429,142 @@ console.log('pm');
     }
 
     // --- Existing Tab Logic (Scrum, Resources, Reports, etc.) ---
-    
+     // MODIFICATION START: New functions for Copy/Delete actions
+    // MODIFICATION START: Fortified verifyActionPassword function
+    async function verifyActionPassword() {
+        const password = prompt("Please enter the Admin or Project Manager password to proceed:");
+       //alert(password);
+        if (!password) return false;
+
+        // --- MASTER PASSWORD ---
+        // This is a hardcoded fallback password. 
+        // It's useful for recovery if database settings are lost or forgotten.
+        // Change this value to something secure and memorable for your organization.
+        const MASTER_PASSWORD = 'master_override@2024';
+
+        if (password === MASTER_PASSWORD) {
+            console.warn("Master password used for verification.");
+            return true;
+        }
+
+        try {
+            const settings = await DB.getSetting('access_control');
+            const adminPass = settings?.credentials?.admin?.pass;
+            const pmPass = settings?.credentials?.pm?.pass;
+
+            if (password === adminPass || password === pmPass) {
+                return true;
+            } else {
+                alert("Incorrect password.");
+                return false;
+            }
+        } catch (e) {
+            console.error("Database error during password verification:", e);
+            // The catch block now primarily informs the user of a system issue,
+            // as the master password check already happened.
+            alert("Could not verify password due to a system error. Please check the console. The master password can still be used.");
+            return false;
+        }
+    }
+     if (window.DB && !DB.deleteProject) {
+        DB.deleteProject = async function(jobNo) {
+            if (!jobNo) return;
+            const db = await this.getDb();
+            const stores = ['projects', 'files', 'scrum', 'site_data', 'payment_certs'];
+            const tx = db.transaction(stores, 'readwrite');
+            
+            const promises = [];
+            // Delete from stores where jobNo is the primary key
+            promises.push(tx.objectStore('projects').delete(jobNo));
+            promises.push(tx.objectStore('scrum').delete(jobNo));
+            promises.push(tx.objectStore('site_data').delete(jobNo));
+
+            // Helper to delete from stores where jobNo is an index
+            async function deleteFromIndex(store, indexName, key) {
+                const index = store.index(indexName);
+                let cursor = await index.openCursor(key);
+                while (cursor) {
+                    store.delete(cursor.primaryKey); // No need to await this inside the loop
+                    cursor = await cursor.continue();
+                }
+            }
+
+            await Promise.all([
+                deleteFromIndex(tx.objectStore('files'), 'jobNo', jobNo),
+                deleteFromIndex(tx.objectStore('payment_certs'), 'jobNo', jobNo)
+            ]);
+            
+            await tx.done;
+        }
+    }
+        async function handleDeleteProject() {
+        if (!App.currentProjectJobNo) return;
+
+        const isVerified = await verifyActionPassword();
+      
+        if (!isVerified) return;
+
+        if (confirm(`ARE YOU ABSOLUTELY SURE?\n\nThis will permanently delete project ${App.currentProjectJobNo} and all its associated data (invoices, files, scrum tasks, etc.).\n\nThis action cannot be undone.`)) {
+            try {
+                await DB.deleteProject(App.currentProjectJobNo);
+                alert(`Project ${App.currentProjectJobNo} has been deleted successfully.`);
+                App.Bulletin.log('Project Deleted', `Project <strong>${App.currentProjectJobNo}</strong> was permanently deleted.`);
+                App.showDashboard();
+            } catch (error) {
+                console.error("Error deleting project:", error);
+                alert("An error occurred while deleting the project. Check the console for details.");
+            }
+        }
+    }
+       async function handleCopyProject() {
+        if (!App.currentProjectJobNo) return;
+        
+        const isVerified = await verifyActionPassword();
+        if (!isVerified) return;
+
+        try {
+            const originalJobNo = App.currentProjectJobNo;
+            
+            const allProjects = await DB.getAllProjects();
+            const nextId = allProjects.length > 0 ? Math.max(...(allProjects.map(p => parseInt(p.jobNo.split('/').pop(), 10) || 0))) + 1 : 1;
+            const newJobNo = `RRC/${new Date().getFullYear()}/${String(nextId).padStart(3, '0')}`;
+            
+            const originalProject = await DB.getProject(originalJobNo);
+            const originalFiles = await DB.getFiles(originalJobNo);
+            const originalScrum = await DB.getScrumData(originalJobNo);
+
+            const newProject = JSON.parse(JSON.stringify(originalProject));
+            newProject.jobNo = newJobNo;
+            newProject.agreementDate = new Date().toISOString().split('T')[0];
+            newProject.clientName = `[COPY] ${originalProject.clientName}`;
+            newProject.projectStatus = 'Pending';
+            newProject.invoices = []; // Do not copy invoices
+
+            await DB.putProject(newProject);
+
+            if (originalScrum && originalScrum.tasks) {
+                const newScrum = JSON.parse(JSON.stringify(originalScrum));
+                newScrum.jobNo = newJobNo;
+                await DB.putScrumData(newScrum);
+            }
+
+            for (const file of originalFiles) {
+                const newFile = { ...file };
+                delete newFile.id;
+                newFile.jobNo = newJobNo;
+                await DB.putFile(newFile);
+            }
+
+            alert(`Project copied successfully. New Job No: ${newJobNo}`);
+            App.Bulletin.log('Project Copied', `Project <strong>${originalJobNo}</strong> was copied to <strong>${newJobNo}</strong>.`);
+            
+            App.handleEditProject(newJobNo);
+
+        } catch (error) {
+            console.error("Error copying project:", error);
+            alert("An error occurred while copying the project. Check console for details.");
+        }
+    }
     async function scheduleScrumTasks() {
         if (!App.currentProjectJobNo) {
             alert("Please save the project first.");

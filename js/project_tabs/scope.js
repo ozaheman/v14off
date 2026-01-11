@@ -21,6 +21,12 @@ function init() {
             <h4>Brief Proposal Terms & Conditions</h4>
             <p>Select which terms to include in the Brief Proposal document.</p>
             <div id="brief-terms-container" class="checkbox-group"></div>
+            <!-- MODIFICATION START -->
+            <div class="input-group" style="margin-top: 10px;">
+                <label for="custom-brief-terms">Additional Terms & Conditions</label>
+                <textarea id="custom-brief-terms" rows="3" placeholder="Enter any custom terms to be added to the brief proposal..."></textarea>
+            </div>
+            <!-- MODIFICATION END -->
         </div>
     `;
     
@@ -191,7 +197,9 @@ function populateTabData(project) {
     document.querySelectorAll('input[name="briefTerm"]').forEach(cb => {
         cb.checked = briefTerms[cb.value] !== undefined ? briefTerms[cb.value] : true; // Default to checked if not defined
     });
-    
+     // MODIFICATION START
+    document.getElementById('custom-brief-terms').value = project.customBriefTerms || '';
+    // MODIFICATION END
     refreshDynamicTexts();
 }
 
@@ -219,7 +227,9 @@ function getTabData() {
     document.querySelectorAll('input[name="briefTerm"]').forEach(cb => {
         data.briefTerms[cb.value] = cb.checked;
     });
-
+ // MODIFICATION START
+    data.customBriefTerms = document.getElementById('custom-brief-terms').value.trim();
+    // MODIFICATION END
     return data;
 }
 
