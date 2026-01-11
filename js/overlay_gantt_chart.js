@@ -14,7 +14,7 @@ const OverlayGantt = (() => {
         rowHeight: 30, // Increased for clarity
         barHeight: 12, // Slimmer bars to fit two per row
         taskListWidth: 200,
-        chartWidth: 1000,
+        //chartWidth: 1000,
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         headerFontSize: '12px',
         taskFontSize: '11px',
@@ -46,10 +46,11 @@ const OverlayGantt = (() => {
 
     // --- DRAWING FUNCTIONS ---
 
-    const drawHeader = (svg, ganttStartDate, totalDays, chartHeight) => {
+    //const drawHeader = (svg, ganttStartDate, totalDays, chartHeight) => {//hedit
+    const drawHeader = (svg, ganttStartDate, totalDays, chartHeight, dayWidth) => {
         const headerGroup = createSvgElement('g', { transform: `translate(${CONFIG.taskListWidth}, 0)` });
         let currentMonth = -1;
-        const dayWidth = CONFIG.chartWidth / totalDays;
+        //const dayWidth = CONFIG.chartWidth / totalDays;//hedit
 
         for (let i = 0; i <= totalDays; i++) {
             const date = new Date(ganttStartDate);
@@ -89,7 +90,8 @@ const OverlayGantt = (() => {
         svg.appendChild(headerGroup);
     };
 
-    const drawTasks = (svg, schedule, ganttStartDate, totalDays, baselineMap, onUpdate) => {
+    //const drawTasks = (svg, schedule, ganttStartDate, totalDays, baselineMap, onUpdate) => {//hedit
+        const drawTasks = (svg, schedule, ganttStartDate, totalDays, baselineMap, onUpdate, dayWidth) => {
         const tasksGroup = createSvgElement('g', { 'font-family': CONFIG.fontFamily });
         const dayWidth = CONFIG.chartWidth / totalDays;
 
@@ -194,13 +196,20 @@ const OverlayGantt = (() => {
         
         const totalDays = Math.max(1, (ganttEndDate - ganttStartDate) / (1000 * 60 * 60 * 24));
         const chartHeight = CONFIG.headerHeight + displaySchedule.length * CONFIG.rowHeight;
-
+ // MODIFICATION: Make chart responsive
+        const availableWidth = container.clientWidth || 1000;
+        const timelineWidth = Math.max(1, availableWidth - CONFIG.taskListWidth);
+        const dayWidth = timelineWidth / totalDays;
+        //modification end
         const svg = createSvgElement('svg', {
-            width: CONFIG.chartWidth + CONFIG.taskListWidth, height: chartHeight, style: "max-width: 100%; background: #fff; border: 1px solid #eee;"
+            //width: CONFIG.chartWidth + CONFIG.taskListWidth, height: chartHeight, style: "max-width: 100%; background: #fff; border: 1px solid #eee;"//hedit
+            width: "100%", height: chartHeight, style: "max-width: 100%; background: #fff; border: 1px solid #eee;"
         });
 
-        drawHeader(svg, ganttStartDate, totalDays, chartHeight);
-        drawTasks(svg, displaySchedule, ganttStartDate, totalDays, baselineMap, onUpdate);
+       // drawHeader(svg, ganttStartDate, totalDays, chartHeight);//hedit
+       // drawTasks(svg, displaySchedule, ganttStartDate, totalDays, baselineMap, onUpdate);//hedit
+       drawHeader(svg, ganttStartDate, totalDays, chartHeight, dayWidth);
+        drawTasks(svg, displaySchedule, ganttStartDate, totalDays, baselineMap, onUpdate, dayWidth);
         container.appendChild(svg);
     };
 

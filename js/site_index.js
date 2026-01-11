@@ -37,7 +37,7 @@ export const AppState = {
 };
 window.AppState = AppState; // <-- ADD THIS LINE
 // --- NEW: ROLE-BASED TAB ACCESS ---
-const ROLE_TABS = {
+let ROLE_TABS = {
     'admin': ['client-info', 'contractor-info','status', 'schedule', 'boq', 'rfi', 'materials', 'mom', 'bulletins', 'noc-tracker', 'subcontractors', 'vendor-management', 'long-lead-items', 'tools', 'photos', 'documents', 'uploads', 'forms', 'snags', 'payments', 'inventory', 'budget', 'bim-designer', 'calendar', 'client-info', 'contractor-info'],
     'manager': ['status', 'schedule', 'boq', 'rfi', 'materials', 'mom', 'bulletins', 'noc-tracker', 'subcontractors', 'vendor-management', 'long-lead-items', 'tools', 'photos', 'documents', 'uploads', 'forms', 'snags', 'payments', 'inventory', 'budget', 'bim-designer', 'calendar', 'client-info', 'contractor-info'],
     'engineer': ['status', 'schedule', 'boq', 'rfi', 'materials', 'mom', 'bulletins', 'photos', 'documents', 'uploads', 'forms', 'calendar'],
@@ -111,6 +111,11 @@ const ROLE_TABS = {
     'designer': ['status', 'schedule', 'rfi', 'materials', 'photos', 'documents', 'bim-designer', 'calendar'],
     'guest': ['contractor-info','status', 'schedule', 'photos']
 };
+// Also define the default site role tabs here for the main app's tools tab to use as a fallback
+export const DEFAULT_SITE_ROLE_TABS = JSON.parse(JSON.stringify(ROLE_TABS));
+if (window.App) {
+    window.App.DEFAULT_SITE_ROLE_TABS = DEFAULT_SITE_ROLE_TABS;
+}
 // --- DOM ELEMENTS CACHE ---
 window.DOMElements = {};
 console.log('DOMElements'); 
@@ -231,6 +236,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
     if (window.DB) {
         await window.DB.init();
+        // MODIFICATION: Load tab visibility settings from DB
+        const tabSettings = await window.DB.getSetting('site_tab_visibility');
+        if (tabSettings && tabSettings.config) {
+            console.log("Loaded custom site tab visibility settings from DB.");
+            ROLE_TABS = tabSettings.config;
+        } else {
+            console.log("Using default site tab visibility settings.");
+        }
         await populateHolidayCountries();
     } else {
         console.error("Database (DB) object not found.");
@@ -460,7 +473,7 @@ function initializeModulesxxx() {
      VendorModule.init({ searchInput: DOMElements.vendorSearchInput, resultsContainer: DOMElements.vendorSearchResults });
      ReportingModule.init(AppContext);
      
-      // ReportingModule.init({ generateBtn: DOMElements.generateProjectReportBtn }, AppContext);
+      //ReportingModule.init({ generateBtn: DOMElements.generateProjectReportBtn }, AppContext);
        
     BoqModule.init(getBoqElements(), AppContext);
           
@@ -824,6 +837,14 @@ function setupCoreEventListeners() {
     DOMElements.momSearchInput?.addEventListener('input', (e) => MomModule.renderList(AppState.currentJobNo, DOMElements.momList, e.target.value));
     
     // Event delegation for all Report Buttons
+    // MODIFICATION: Add listener for the new report button
+    DOMElements.generateProjectReportBtn?.addEventListener('click', () => {
+        if (AppState.currentJobNo) {
+            ReportingModule.showProjectStatusReportConfig(AppState.currentJobNo);
+        } else {
+            alert("Please select a project first.");
+        }
+    });
     DOMElements.projectDetailsView?.addEventListener('click', handleReportButtonClick);
       // Calendar MoM preview
     DOMElements.calendarGridBody?.addEventListener('click', (e) => {

@@ -448,7 +448,7 @@ paymentCertificatex: (certData, project) => {
             const includedTerms = (CONTENT.BRIEF_PROPOSAL_TERMS || [])
                 .filter(term => data.briefTerms?.[term.id] !== false); 
             
-            if (includedTerms.length > 0) {
+            if (includedTerms.length > 0|| data.customBriefTerms) {
                 html += `<h3>Terms and Conditions:</h3><ul style="font-size: 0.9em; color: #333;">`;
                 includedTerms.forEach(term => {
                     const termText = term.text
@@ -456,6 +456,12 @@ paymentCertificatex: (certData, project) => {
                         .replace(/{additionalSupervisionFee}/g, data.scope?.additionalSupervisionFee || '1000');
                     html += `<li>${termText}</li>`;
                 });
+                // MODIFICATION START: Add custom terms from textarea
+                if (data.customBriefTerms) {
+                    const customItems = data.customBriefTerms.split('\n').filter(line => line.trim() !== '').map(line => `<li>${line.trim()}</li>`).join('');
+                    html += customItems;
+                }
+                // MODIFICATION END
                 html += `</ul>`;
             }
 
@@ -559,6 +565,12 @@ paymentCertificatex: (certData, project) => {
                      if (data.notes[item.id]) notesHtml += `<li>${item.text}</li>`;
                  });
              }
+             // MODIFICATION START: Add custom notes from textarea
+             if (data.customNotes) {
+                const customNoteItems = data.customNotes.split('\n').filter(line => line.trim() !== '').map(line => `<li>${line.trim()}</li>`).join('');
+                notesHtml += customNoteItems;
+             }
+             // MODIFICATION END
              if (notesHtml) html += `<p><b>Note:</b></p><ol>${notesHtml}</ol>`;
              
              html += `<h4>${mainCounter + 2}. OWNERSHIP OF DOCUMENTS</h4><p>All technical specifications and other contract documents shall remain the sole property of the Consultant...</p>

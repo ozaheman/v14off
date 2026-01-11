@@ -23,8 +23,8 @@ window.UrbanAxisSchedule = (() => {
         headerHeight: 65,
         rowHeight: 32,
         barHeight: 16,
-        barOpacity: 0.5,
-        progressOpacity: 0.6,
+        //barOpacity: 0.5,
+        //progressOpacity: 0.6,
         taskListWidth: 260,
         currentZoom: 'month',
         zoomLevels: {
@@ -34,9 +34,9 @@ window.UrbanAxisSchedule = (() => {
             year: { dayWidth: 1 }
         },
         // Colors
-        barColor: '#4363d8',
-        criticalColor: '#ff4d4d',
-        progressBarColor: '#3cb44b',
+         barColor: 'rgba(67, 99, 216, 0.6)',
+        criticalColor: 'rgba(255, 77, 77, 0.6)',
+        progressBarColor: 'rgba(60, 180, 75, 0.75)',
         gridLineColor: '#e0e0e0',
         dividerLineColor: '#b0b0b0',
         dependencyColor: '#999',
@@ -219,7 +219,8 @@ window.UrbanAxisSchedule = (() => {
     const drawHeader = (svg, ganttStartDate, totalDays) => {
         const zoom = CONFIG.zoomLevels[CONFIG.currentZoom];
         const dayWidth = zoom.dayWidth;
-        const width = totalDays * dayWidth;
+        //const width = totalDays * dayWidth;// hedit
+        const width = svg.getAttribute('width'); // Use actual SVG width
         const height = CONFIG.headerHeight;
         
         const headerGroup = createSvgElement('g', { class: 'header-labels' });
@@ -395,9 +396,12 @@ window.UrbanAxisSchedule = (() => {
             const barWidth = coords.width;
             const isCritical = coords.isCritical;
 
-            // Row Background
+            /*// Row Background
             const rowBg = createSvgElement('rect', { x: 0, y: y, width: totalDays * dayWidth, height: CONFIG.rowHeight, fill: index % 2 === 0 ? '#fff' : '#fafafa' });
-            const rowLine = createSvgElement('line', { x1: 0, x2: totalDays * dayWidth, y1: y + CONFIG.rowHeight, y2: y + CONFIG.rowHeight, stroke: '#f0f0f0' });
+            const rowLine = createSvgElement('line', { x1: 0, x2: totalDays * dayWidth, y1: y + CONFIG.rowHeight, y2: y + CONFIG.rowHeight, stroke: '#f0f0f0' });*/
+            // Row Background
+            const rowBg = createSvgElement('rect', { x: 0, y: y, width: svg.getAttribute('width'), height: CONFIG.rowHeight, fill: index % 2 === 0 ? '#fff' : '#fafafa' });
+            const rowLine = createSvgElement('line', { x1: 0, x2: svg.getAttribute('width'), y1: y + CONFIG.rowHeight, y2: y + CONFIG.rowHeight, stroke: '#f0f0f0' });
             tasksGroup.appendChild(rowBg); 
             tasksGroup.appendChild(rowLine);
 
@@ -408,7 +412,8 @@ window.UrbanAxisSchedule = (() => {
 
             const bar = createSvgElement('rect', { 
                 x: barX, y: barY, width: barWidth, height: CONFIG.barHeight, 
-                fill: fillColor, 'fill-opacity': CONFIG.barOpacity, 
+                //fill: fillColor, 'fill-opacity': CONFIG.barOpacity, //hedit
+                fill: fillColor,
                 rx: 3, ry: 3, class: 'gantt-bar-main', style: 'cursor: move;' 
             });
             
@@ -425,7 +430,7 @@ window.UrbanAxisSchedule = (() => {
                 x: barX, y: barY, 
                 width: Math.max(0, barWidth * (progress / 100)), 
                 height: CONFIG.barHeight, 
-                fill: CONFIG.progressBarColor, 'fill-opacity': CONFIG.progressOpacity,
+                fill: CONFIG.progressBarColor, //'fill-opacity': CONFIG.progressOpacity,//hedit
                 rx: 3, ry: 3, 'pointer-events': 'none' 
             });
 
@@ -714,7 +719,7 @@ window.UrbanAxisSchedule = (() => {
 
         const totalDays = Math.ceil((ganttEndDate - ganttStartDate) / (1000 * 60 * 60 * 24));
         const dayWidth = CONFIG.zoomLevels[CONFIG.currentZoom].dayWidth;
-        const chartWidth = Math.ceil(totalDays * dayWidth); 
+        //const chartWidth = Math.ceil(totalDays * dayWidth); 
         const bodyHeight = validTasks.length * CONFIG.rowHeight;
 
         // RIGHT CONTAINER (Timeline)
@@ -724,7 +729,11 @@ window.UrbanAxisSchedule = (() => {
         timelineContainer.style.flexDirection = 'column'; 
         timelineContainer.style.overflow = 'hidden';
         contentArea.appendChild(timelineContainer);
-
+ // MODIFICATION: Calculate dynamic chart width
+        const availableTimelineWidth = timelineContainer.clientWidth;
+        const calculatedChartWidth = Math.ceil(totalDays * dayWidth);
+        const chartWidth = Math.max(calculatedChartWidth, availableTimelineWidth);
+//end modification
         const headerScrollArea = document.createElement('div'); 
         headerScrollArea.style.height = `${CONFIG.headerHeight}px`; 
         headerScrollArea.style.overflow = 'hidden'; 
