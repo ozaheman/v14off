@@ -399,7 +399,11 @@ function getInventoryModalElements() {
 }
 
 function initializeModules() {
-    RfiModule.init(getRfiModalElements(), AppContext);
+    //RfiModule.init(getRfiModalElements(), AppContext);
+     const rfiModalElements = getRfiModalElements();
+    
+    rfiModalElements.newRfiBtn = document.getElementById('new-rfi-btn');
+    RfiModule.init(rfiModalElements, AppContext);
     MaterialsModule.init({ newBtn: document.getElementById('new-material-submittal-btn'), formModal: DOMElements.formModal, formModalTitle: DOMElements.formModalTitle, formModalBody: DOMElements.formModalBody, formSaveBtn: DOMElements.saveFormBtn }, AppContext);
     BulletinModule.init({ postBtn: DOMElements.postBulletinBtn, subjectInput: DOMElements.bulletinSubject, detailsInput: DOMElements.bulletinDetails, assignedToInput: DOMElements.bulletinAssignedTo }, AppContext);
     VendorModule.init({ searchInput: DOMElements.vendorSearchInput, resultsContainer: DOMElements.vendorSearchResults });
