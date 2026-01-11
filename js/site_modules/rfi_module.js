@@ -3,9 +3,11 @@ export const RfiModule = {
     tempFiles: [],
     DOMElements: {},
     init: (domElements, context) => {
+        
         RfiModule.DOMElements = domElements;
         
         if (domElements.newRfiBtn) {
+            //alert('hh');
             domElements.newRfiBtn.addEventListener('click', () => RfiModule.openModal(null, context, 'new'));
         }
         
